@@ -19,7 +19,7 @@ pub mod error;
 pub mod models;
 pub mod utils;
 
-// Re-export main types
+// Re-export main types for consumers
 pub use engine::LocalNLPEngine;
 pub use error::NLPError;
 
