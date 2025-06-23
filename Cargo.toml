@@ -14,15 +14,21 @@ nodespace-core-types = { path = "../nodespace-core-types" }
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
-# AI/ML and model inference (commented out for initial compilation)
-# candle-core = "0.6"
-# candle-nn = "0.6"
-# candle-transformers = "0.6"
-# mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", features = ["cuda", "metal"] }
+# AI/ML and model inference (compatible stable versions)
+candle-core = { version = "0.8.4", optional = true }
+candle-nn = { version = "0.8.4", optional = true }
+candle-transformers = { version = "0.8.4", optional = true }
+hf-hub = { version = "0.4.2", features = ["tokio"], optional = true }
+safetensors = { version = "0.4", optional = true }
 
-# Tokenization and text processing (commented out for initial compilation)
-# tokenizers = "0.19"
-# hf-hub = "0.3"
+# LLM inference with Metal support for Apple Silicon
+mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", features = ["metal"], optional = true }
+
+# Optional LLM backend alternative
+llama-cpp-2 = { version = "0.1.107", optional = true }
+
+# Tokenization and text processing
+tokenizers = { version = "0.19", optional = true }
 
 # Serialization and data handling
 serde = { version = "1.0", features = ["derive"] }
@@ -48,10 +54,10 @@ tempfile = "3.0"
 tracing-subscriber = "0.3"
 
 [features]
-default = []
-# cuda = ["mistralrs/cuda"]
-# metal = ["mistralrs/metal"]
-cpu-only = []
+default = ["real-ml"]
+real-ml = ["candle-core", "candle-nn", "candle-transformers", "mistralrs", "tokenizers", "hf-hub", "safetensors"]
+llama-cpp = ["llama-cpp-2", "real-ml"]
+cpu-only = ["real-ml"]
 
 [[example]]
 name = "generate_embeddings"

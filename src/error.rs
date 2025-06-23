@@ -49,6 +49,9 @@ pub enum NLPError {
 
     #[error("Batch processing error: {message}")]
     BatchProcessing { message: String },
+
+    #[error("Processing error: {message}")]
+    ProcessingError { message: String },
 }
 
 impl From<NLPError> for nodespace_core_types::NodeSpaceError {
