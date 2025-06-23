@@ -125,12 +125,12 @@ impl Default for NLPConfig {
                     normalize: true,
                 },
                 text_generation: TextGenerationModelConfig {
-                    model_name: "mistralai/Magistral-Small-2506".to_string(),
+                    model_name: "mistralai/Magistral-Small-2506_gguf".to_string(),
                     model_path: None,
-                    max_context_length: 128000,
+                    max_context_length: 40000, // Recommended max for Magistral-Small
                     default_temperature: 0.7,
                     default_max_tokens: 2048,
-                    default_top_p: 0.9,
+                    default_top_p: 0.95, // Recommended for Magistral-Small
                 },
             },
             device: DeviceConfig {

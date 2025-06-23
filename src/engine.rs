@@ -68,7 +68,7 @@ impl LocalNLPEngine {
         let mut text_generator = TextGenerator::new(
             self.config.models.text_generation.clone(),
             self.device_type.clone(),
-        );
+        )?;
         text_generator.initialize().await?;
 
         // Initialize SurrealQL generator
