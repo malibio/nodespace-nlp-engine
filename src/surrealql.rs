@@ -11,6 +11,12 @@ pub struct SurrealQLGenerator {
     safety_rules: SafetyRules,
 }
 
+impl Default for SurrealQLGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SurrealQLGenerator {
     /// Create a new SurrealQL generator
     pub fn new() -> Self {
@@ -169,7 +175,7 @@ SurrealQL:"#,
         let intent_type = if query.to_lowercase().contains("create") {
             "CREATE_ENTITY"
         } else if query.to_lowercase().contains("find") || query.to_lowercase().contains("search") {
-            "SEARCH_ENTITIES" 
+            "SEARCH_ENTITIES"
         } else if query.to_lowercase().contains("update") {
             "UPDATE_ENTITY"
         } else if query.to_lowercase().contains("delete") {
@@ -271,7 +277,11 @@ SurrealQL:"#,
     }
 
     /// Extract SQL statement from text response
-    fn extract_sql_statement(&self, response: &str, statement_type: &str) -> Result<String, NLPError> {
+    fn extract_sql_statement(
+        &self,
+        response: &str,
+        statement_type: &str,
+    ) -> Result<String, NLPError> {
         let lines: Vec<&str> = response.lines().collect();
 
         // Look for lines that start with the statement type
@@ -305,7 +315,10 @@ SurrealQL:"#,
         }
 
         Err(NLPError::SurrealQLGeneration {
-            message: format!("Could not extract {} statement from response", statement_type),
+            message: format!(
+                "Could not extract {} statement from response",
+                statement_type
+            ),
         })
     }
 
@@ -432,7 +445,9 @@ SurrealQL:"#,
 #[derive(Debug, Clone)]
 struct QueryAnalysis {
     query_type: QueryType,
+    #[allow(dead_code)]
     confidence: f32,
+    #[allow(dead_code)]
     parameters: HashMap<String, serde_json::Value>,
     tables_mentioned: Vec<String>,
     potential_injection: bool,
@@ -445,6 +460,7 @@ enum QueryType {
     Create,
     Update,
     Delete,
+    #[allow(dead_code)]
     Relate,
 }
 
@@ -463,7 +479,9 @@ pub struct SearchCriteria {
 #[derive(Debug, Clone)]
 struct SafetyRules {
     forbidden_patterns: Vec<String>,
+    #[allow(dead_code)]
     max_query_length: usize,
+    #[allow(dead_code)]
     allowed_tables: Option<Vec<String>>,
 }
 

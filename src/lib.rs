@@ -4,19 +4,19 @@
 //! Provides embedding generation, LLM integration, SurrealQL generation, and semantic processing.
 
 use async_trait::async_trait;
-use nodespace_core_types::{NodeSpaceError, NodeSpaceResult};
+use nodespace_core_types::NodeSpaceResult;
 use serde::{Deserialize, Serialize};
 
 // Re-export core types for convenience
 pub use nodespace_core_types;
 
 // Module declarations
-pub mod engine;
 pub mod embedding;
-pub mod text_generation;
-pub mod surrealql;
+pub mod engine;
 pub mod error;
 pub mod models;
+pub mod surrealql;
+pub mod text_generation;
 pub mod utils;
 
 // Re-export main types for consumers
@@ -24,23 +24,27 @@ pub use engine::LocalNLPEngine;
 pub use error::NLPError;
 
 /// NLP Engine Service Interface
-/// 
+///
 /// Minimal interface for AI/ML operations using Mistral.rs and embedding generation.
 /// This is re-exported from the contracts for implementation.
 #[async_trait]
 pub trait NLPEngine: Send + Sync {
     /// Generate vector embedding for text content
     async fn generate_embedding(&self, text: &str) -> NodeSpaceResult<Vec<f32>>;
-    
+
     /// Generate embeddings for multiple texts (batch operation)
     async fn batch_embeddings(&self, texts: &[String]) -> NodeSpaceResult<Vec<Vec<f32>>>;
-    
+
     /// Generate text using the local LLM (Mistral.rs)
     async fn generate_text(&self, prompt: &str) -> NodeSpaceResult<String>;
-    
+
     /// Generate SurrealQL from natural language query
-    async fn generate_surrealql(&self, natural_query: &str, schema_context: &str) -> NodeSpaceResult<String>;
-    
+    async fn generate_surrealql(
+        &self,
+        natural_query: &str,
+        schema_context: &str,
+    ) -> NodeSpaceResult<String>;
+
     /// Get embedding model dimensions
     fn embedding_dimensions(&self) -> usize;
 }
