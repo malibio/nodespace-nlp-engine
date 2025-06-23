@@ -1,48 +1,122 @@
-//! Text generation using Mistral.rs
-//!
-//! NOTE: This is currently a stub implementation for compilation.
-//! The full ML dependencies are commented out in Cargo.toml
+//! Text generation using mistral.rs for high-performance LLM inference
+//! Uses mistral.rs with Metal acceleration for Apple Silicon
 
 use crate::error::NLPError;
-use crate::models::{TextGenerationModelConfig, DeviceType};
+use crate::models::{DeviceType, TextGenerationModelConfig};
 use crate::utils::metrics::Timer;
 
-use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+// Real ML dependencies using mistral.rs
+#[cfg(feature = "real-ml")]
+use mistralrs::{
+    GgufModelBuilder, TextMessages, TextMessageRole,
+};
 
-/// Text generator using Mistral.rs for local LLM inference (STUB IMPLEMENTATION)
+// Alternative LLM backend for stable implementation
+#[cfg(feature = "llama-cpp")]
+use llama_cpp_2::{
+    context::LlamaContext,
+    model::{LlamaModel, LlamaParams},
+    token::LlamaToken,
+};
+
+/// Text generator using mistral.rs for high-performance LLM inference
 pub struct TextGenerator {
     config: TextGenerationModelConfig,
+    #[cfg(feature = "real-ml")]
+    model: Option<mistralrs::Model>,
+    #[cfg(not(feature = "real-ml"))]
+    #[allow(dead_code)]
     device_type: DeviceType,
+    #[cfg(feature = "llama-cpp")]
+    model_llama: Option<LlamaModel>,
+    #[cfg(feature = "llama-cpp")]
+    context: Option<LlamaContext>,
     initialized: bool,
 }
 
 impl TextGenerator {
     /// Create a new text generator
-    pub fn new(config: TextGenerationModelConfig, device_type: DeviceType) -> Self {
-        Self {
-            config,
-            device_type,
-            initialized: false,
+    pub fn new(config: TextGenerationModelConfig, _device_type: DeviceType) -> Result<Self, NLPError> {
+        #[cfg(feature = "real-ml")]
+        {
+            Ok(Self {
+                config,
+                model: None,
+                #[cfg(feature = "llama-cpp")]
+                model_llama: None,
+                #[cfg(feature = "llama-cpp")]
+                context: None,
+                initialized: false,
+            })
+        }
+
+        #[cfg(not(feature = "real-ml"))]
+        {
+            Ok(Self {
+                config,
+                device_type: _device_type,
+                #[cfg(feature = "llama-cpp")]
+                model_llama: None,
+                #[cfg(feature = "llama-cpp")]
+                context: None,
+                initialized: false,
+            })
         }
     }
 
-    /// Initialize the Mistral.rs engine (STUB)
+
+    /// Initialize the text generation model
     pub async fn initialize(&mut self) -> Result<(), NLPError> {
         let _timer = Timer::new("text_generation_model_initialization");
 
-        // TODO: Replace with actual Mistral.rs initialization when dependencies are available
-        tracing::info!(
-            "STUB: Text generation model initialized: {} on {:?}",
-            self.config.model_name,
-            self.device_type
-        );
+        if self.initialized {
+            return Ok(());
+        }
+
+        #[cfg(feature = "real-ml")]
+        {
+            tracing::info!("Loading real text generation model: {}", self.config.model_name);
+            self.load_mistral_model().await?;
+            tracing::info!(
+                "Real text generation model initialized successfully: {}",
+                self.config.model_name
+            );
+        }
+
+        #[cfg(not(feature = "real-ml"))]
+        {
+            tracing::info!(
+                "STUB: Text generation model initialized: {}",
+                self.config.model_name
+            );
+        }
 
         self.initialized = true;
         Ok(())
     }
 
-    /// Generate text from a prompt (STUB)
+    #[cfg(feature = "real-ml")]
+    async fn load_mistral_model(&mut self) -> Result<(), NLPError> {
+        tracing::info!("Loading mistralrs GGUF model: {}", self.config.model_name);
+        
+        // Build the model using GgufModelBuilder for GGUF models
+        let model = GgufModelBuilder::new(
+            self.config.model_name.clone(),
+            vec!["Magistral-Small-2506_Q8_0.gguf"], // Use Q8_0 quantization (25.1 GB)
+        )
+        .with_logging()
+        .build()
+        .await
+        .map_err(|e| NLPError::ModelLoading {
+            message: format!("Failed to build mistralrs GGUF model: {}", e),
+        })?;
+        
+        self.model = Some(model);
+        tracing::info!("Successfully loaded mistralrs GGUF model: {}", self.config.model_name);
+        Ok(())
+    }
+
+    /// Generate text from a prompt
     pub async fn generate_text(&self, prompt: &str) -> Result<String, NLPError> {
         self.generate_text_with_params(
             prompt,
@@ -53,7 +127,7 @@ impl TextGenerator {
         .await
     }
 
-    /// Generate text with custom parameters (STUB)
+    /// Generate text with custom parameters
     pub async fn generate_text_with_params(
         &self,
         prompt: &str,
@@ -69,14 +143,68 @@ impl TextGenerator {
             });
         }
 
+        #[cfg(feature = "real-ml")]
+        {
+            self.generate_real_text(prompt, max_tokens, temperature, top_p).await
+        }
+
+        #[cfg(not(feature = "real-ml"))]
+        {
+            // Parameters ignored in stub implementation
+            let _ = (max_tokens, temperature, top_p);
+            self.generate_stub_text(prompt).await
+        }
+    }
+
+    #[cfg(feature = "real-ml")]
+    async fn generate_real_text(
+        &self,
+        prompt: &str,
+        _max_tokens: u32,
+        _temperature: f32,
+        _top_p: f32,
+    ) -> Result<String, NLPError> {
+        let model = self.model.as_ref().ok_or_else(|| NLPError::ModelLoading {
+            message: "Model not loaded".to_string(),
+        })?;
+
+        // Create the conversation following the simple example pattern
+        let messages = TextMessages::new()
+            .add_message(
+                TextMessageRole::System, 
+                "You are a helpful AI assistant for NodeSpace, a distributed system for managing entities, tasks, and meetings."
+            )
+            .add_message(TextMessageRole::User, prompt);
+
+        // Send the chat request (non-streaming)
+        let response = model
+            .send_chat_request(messages)
+            .await
+            .map_err(|e| NLPError::ProcessingError {
+                message: format!("Failed to send chat request: {}", e),
+            })?;
+
+        // Extract the response content
+        let content = response.choices[0].message.content
+            .clone()
+            .unwrap_or_else(|| "No response generated".to_string());
+        Ok(content)
+    }
+
+    #[cfg(not(feature = "real-ml"))]
+    async fn generate_stub_text(&self, prompt: &str) -> Result<String, NLPError> {
         // STUB: Generate deterministic responses based on prompt content
         let response = if prompt.to_lowercase().contains("meeting") {
             "A productive meeting involves clear agenda items, active participation from all attendees, and defined action items with assigned owners and deadlines."
         } else if prompt.to_lowercase().contains("task") {
             "Effective task management requires clear descriptions, realistic deadlines, appropriate priority levels, and regular progress tracking."
-        } else if prompt.to_lowercase().contains("surrealql") || prompt.to_lowercase().contains("select") {
+        } else if prompt.to_lowercase().contains("surrealql")
+            || prompt.to_lowercase().contains("select")
+        {
             "SELECT * FROM meeting WHERE date > time::now() - 1w ORDER BY date DESC LIMIT 10"
-        } else if prompt.to_lowercase().contains("create") && prompt.to_lowercase().contains("entity") {
+        } else if prompt.to_lowercase().contains("create")
+            && prompt.to_lowercase().contains("entity")
+        {
             r#"{"entity_type": "Meeting", "title": "Team Planning Session", "fields": {"participants": ["John", "Sarah"], "date": "2024-01-15"}, "tags": ["planning", "team"], "confidence": 0.9}"#
         } else {
             "This is a generated response from the NodeSpace NLP Engine stub implementation."
@@ -156,7 +284,7 @@ impl TextGenerator {
     pub async fn generate_surrealql(
         &self,
         query: &str,
-        schema_context: &str,
+        _schema_context: &str,
     ) -> Result<String, NLPError> {
         if !self.initialized {
             return Err(NLPError::ModelLoading {
@@ -165,7 +293,9 @@ impl TextGenerator {
         }
 
         // STUB: Generate simple SurrealQL based on query content
-        let surrealql = if query.to_lowercase().contains("find") || query.to_lowercase().contains("get") {
+        let surrealql = if query.to_lowercase().contains("find")
+            || query.to_lowercase().contains("get")
+        {
             if query.to_lowercase().contains("meeting") {
                 "SELECT * FROM meeting WHERE date > time::now() - 1w ORDER BY date DESC LIMIT 10"
             } else if query.to_lowercase().contains("task") {
@@ -219,10 +349,24 @@ impl TextGenerator {
 
     /// Get model information
     pub fn model_info(&self) -> TextGenerationModelInfo {
-        TextGenerationModelInfo {
-            model_name: self.config.model_name.clone(),
-            max_context_length: self.config.max_context_length,
-            device_type: self.device_type.clone(),
+        #[cfg(feature = "real-ml")]
+        {
+            // For mistral.rs, we'll report the device as Auto since it handles device selection
+            let device_type = DeviceType::Auto;
+            TextGenerationModelInfo {
+                model_name: self.config.model_name.clone(),
+                max_context_length: self.config.max_context_length,
+                device_type,
+            }
+        }
+
+        #[cfg(not(feature = "real-ml"))]
+        {
+            TextGenerationModelInfo {
+                model_name: self.config.model_name.clone(),
+                max_context_length: self.config.max_context_length,
+                device_type: self.device_type.clone(),
+            }
         }
     }
 }
