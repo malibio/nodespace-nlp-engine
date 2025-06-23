@@ -4,8 +4,7 @@ use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
+    // Skip tracing initialization - mistralrs handles this
 
     println!("🚀 NodeSpace NLP Engine - Text Generation Example");
 

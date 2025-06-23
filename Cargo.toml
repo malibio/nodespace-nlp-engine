@@ -19,6 +19,10 @@ candle-core = { version = "0.8.4", optional = true }
 candle-nn = { version = "0.8.4", optional = true }
 candle-transformers = { version = "0.8.4", optional = true }
 hf-hub = { version = "0.4.2", features = ["tokio"], optional = true }
+safetensors = { version = "0.4", optional = true }
+
+# LLM inference with Metal support for Apple Silicon
+mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", features = ["metal"], optional = true }
 
 # Optional LLM backend alternative
 llama-cpp-2 = { version = "0.1.107", optional = true }
@@ -51,7 +55,7 @@ tracing-subscriber = "0.3"
 
 [features]
 default = ["real-ml"]
-real-ml = ["candle-core", "candle-nn", "candle-transformers", "tokenizers", "hf-hub"]
+real-ml = ["candle-core", "candle-nn", "candle-transformers", "mistralrs", "tokenizers", "hf-hub", "safetensors"]
 llama-cpp = ["llama-cpp-2", "real-ml"]
 cpu-only = ["real-ml"]
 

@@ -4,7 +4,8 @@ use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
+    // Skip tracing initialization when using real-ml feature
+    #[cfg(not(feature = "real-ml"))]
     tracing_subscriber::fmt::init();
 
     println!("🚀 NodeSpace NLP Engine - Embedding Generation Example");
