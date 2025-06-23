@@ -3,7 +3,7 @@
 use crate::embedding::EmbeddingGenerator;
 use crate::error::NLPError;
 use crate::models::{DeviceType, NLPConfig};
-use crate::surrealql::{SearchCriteria, SurrealQLGenerator};
+use crate::surrealql::SurrealQLGenerator;
 use crate::text_generation::TextGenerator;
 use crate::utils::metrics::Timer;
 use crate::NLPEngine;
@@ -71,7 +71,7 @@ impl LocalNLPEngine {
         );
         text_generator.initialize().await?;
 
-        // Initialize SurrealQL generator  
+        // Initialize SurrealQL generator
         let surrealql_generator = SurrealQLGenerator::new();
 
         // Store the initialized components
@@ -136,7 +136,9 @@ impl LocalNLPEngine {
     }
 
     /// Get the embedding generator (ensuring it's initialized)
-    async fn get_embedding_generator(&self) -> Result<Arc<RwLock<Option<EmbeddingGenerator>>>, NLPError> {
+    async fn get_embedding_generator(
+        &self,
+    ) -> Result<Arc<RwLock<Option<EmbeddingGenerator>>>, NLPError> {
         self.ensure_initialized().await?;
         Ok(self.embedding_generator.clone())
     }
@@ -148,7 +150,9 @@ impl LocalNLPEngine {
     }
 
     /// Get the SurrealQL generator (ensuring it's initialized)
-    async fn get_surrealql_generator(&self) -> Result<Arc<RwLock<Option<SurrealQLGenerator>>>, NLPError> {
+    async fn get_surrealql_generator(
+        &self,
+    ) -> Result<Arc<RwLock<Option<SurrealQLGenerator>>>, NLPError> {
         self.ensure_initialized().await?;
         Ok(self.surrealql_generator.clone())
     }
@@ -183,15 +187,20 @@ impl LocalNLPEngine {
     ) -> Result<SurrealQLResult, NLPError> {
         let surrealql_generator = self.get_surrealql_generator().await?;
         let surrealql_generator = surrealql_generator.read().await;
-        let surrealql_generator = surrealql_generator.as_ref().ok_or_else(|| NLPError::ModelLoading {
-            message: "SurrealQL generator not initialized".to_string(),
-        })?;
+        let surrealql_generator =
+            surrealql_generator
+                .as_ref()
+                .ok_or_else(|| NLPError::ModelLoading {
+                    message: "SurrealQL generator not initialized".to_string(),
+                })?;
 
         let text_generator = self.get_text_generator().await?;
         let text_generator = text_generator.read().await;
-        let text_generator = text_generator.as_ref().ok_or_else(|| NLPError::ModelLoading {
-            message: "Text generator not initialized".to_string(),
-        })?;
+        let text_generator = text_generator
+            .as_ref()
+            .ok_or_else(|| NLPError::ModelLoading {
+                message: "Text generator not initialized".to_string(),
+            })?;
 
         let _timer = Timer::new("advanced_surrealql_generation");
 
@@ -209,8 +218,10 @@ impl LocalNLPEngine {
     /// Estimate query complexity for performance optimization
     fn estimate_query_complexity(&self, query: &str) -> QueryComplexity {
         let word_count = query.split_whitespace().count();
-        let has_joins = query.to_lowercase().contains("with") || query.to_lowercase().contains("related");
-        let has_aggregation = query.to_lowercase().contains("count") || query.to_lowercase().contains("sum");
+        let has_joins =
+            query.to_lowercase().contains("with") || query.to_lowercase().contains("related");
+        let has_aggregation =
+            query.to_lowercase().contains("count") || query.to_lowercase().contains("sum");
 
         if word_count > 20 || has_joins || has_aggregation {
             QueryComplexity::High
@@ -232,11 +243,7 @@ impl LocalNLPEngine {
 
     /// Get cache statistics
     pub async fn cache_stats(&self) -> CacheStats {
-        let embedding_cache = if let Some(embedding_gen) = self.embedding_generator.read().await.as_ref() {
-            Some(embedding_gen.cache_stats())
-        } else {
-            None
-        };
+        let embedding_cache = self.embedding_generator.read().await.as_ref().map(|embedding_gen| embedding_gen.cache_stats());
 
         CacheStats {
             embedding_cache_size: embedding_cache.map(|(size, _)| size).unwrap_or(0),
@@ -249,11 +256,15 @@ impl LocalNLPEngine {
 impl NLPEngine for LocalNLPEngine {
     /// Generate vector embedding for text content
     async fn generate_embedding(&self, text: &str) -> NodeSpaceResult<Vec<f32>> {
-        let generator = self.get_embedding_generator().await
+        let generator = self
+            .get_embedding_generator()
+            .await
             .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
-        
+
         let generator = generator.read().await;
-        let generator = generator.as_ref().ok_or_else(|| NodeSpaceError::ProcessingError("Embedding generator not initialized".to_string()))?;
+        let generator = generator.as_ref().ok_or_else(|| {
+            NodeSpaceError::ProcessingError("Embedding generator not initialized".to_string())
+        })?;
 
         generator
             .generate_embedding(text)
@@ -263,11 +274,15 @@ impl NLPEngine for LocalNLPEngine {
 
     /// Generate embeddings for multiple texts (batch operation)
     async fn batch_embeddings(&self, texts: &[String]) -> NodeSpaceResult<Vec<Vec<f32>>> {
-        let generator = self.get_embedding_generator().await
+        let generator = self
+            .get_embedding_generator()
+            .await
             .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
-        
+
         let generator = generator.read().await;
-        let generator = generator.as_ref().ok_or_else(|| NodeSpaceError::ProcessingError("Embedding generator not initialized".to_string()))?;
+        let generator = generator.as_ref().ok_or_else(|| {
+            NodeSpaceError::ProcessingError("Embedding generator not initialized".to_string())
+        })?;
 
         generator
             .batch_embeddings(texts)
@@ -277,11 +292,15 @@ impl NLPEngine for LocalNLPEngine {
 
     /// Generate text using the local LLM (Mistral.rs)
     async fn generate_text(&self, prompt: &str) -> NodeSpaceResult<String> {
-        let generator = self.get_text_generator().await
+        let generator = self
+            .get_text_generator()
+            .await
             .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
-        
+
         let generator = generator.read().await;
-        let generator = generator.as_ref().ok_or_else(|| NodeSpaceError::ProcessingError("Text generator not initialized".to_string()))?;
+        let generator = generator.as_ref().ok_or_else(|| {
+            NodeSpaceError::ProcessingError("Text generator not initialized".to_string())
+        })?;
 
         generator
             .generate_text(prompt)
@@ -290,7 +309,11 @@ impl NLPEngine for LocalNLPEngine {
     }
 
     /// Generate SurrealQL from natural language query
-    async fn generate_surrealql(&self, natural_query: &str, schema_context: &str) -> NodeSpaceResult<String> {
+    async fn generate_surrealql(
+        &self,
+        natural_query: &str,
+        schema_context: &str,
+    ) -> NodeSpaceResult<String> {
         let result = self
             .generate_surrealql_advanced(natural_query, schema_context, true)
             .await

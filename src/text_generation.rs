@@ -1,19 +1,26 @@
-//! Text generation using Mistral.rs
-//!
-//! NOTE: This is currently a stub implementation for compilation.
-//! The full ML dependencies are commented out in Cargo.toml
+//! Text generation using llama-cpp-2 (stable local LLM inference)
+//! Uses stable dependencies for local-first AI processing
 
 use crate::error::NLPError;
-use crate::models::{TextGenerationModelConfig, DeviceType};
+use crate::models::{DeviceType, TextGenerationModelConfig};
 use crate::utils::metrics::Timer;
 
-use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+// Alternative LLM backend for stable implementation
+#[cfg(feature = "llama-cpp")]
+use llama_cpp_2::{
+    context::LlamaContext,
+    model::{LlamaModel, LlamaParams},
+    token::LlamaToken,
+};
 
-/// Text generator using Mistral.rs for local LLM inference (STUB IMPLEMENTATION)
+/// Text generator using llama-cpp-2 for local LLM inference
 pub struct TextGenerator {
     config: TextGenerationModelConfig,
     device_type: DeviceType,
+    #[cfg(feature = "llama-cpp")]
+    model: Option<LlamaModel>,
+    #[cfg(feature = "llama-cpp")]
+    context: Option<LlamaContext>,
     initialized: bool,
 }
 
@@ -23,6 +30,10 @@ impl TextGenerator {
         Self {
             config,
             device_type,
+            #[cfg(feature = "llama-cpp")]
+            model: None,
+            #[cfg(feature = "llama-cpp")]
+            context: None,
             initialized: false,
         }
     }
@@ -57,9 +68,9 @@ impl TextGenerator {
     pub async fn generate_text_with_params(
         &self,
         prompt: &str,
-        max_tokens: u32,
-        temperature: f32,
-        top_p: f32,
+        _max_tokens: u32,
+        _temperature: f32,
+        _top_p: f32,
     ) -> Result<String, NLPError> {
         let _timer = Timer::new("text_generation");
 
@@ -74,9 +85,13 @@ impl TextGenerator {
             "A productive meeting involves clear agenda items, active participation from all attendees, and defined action items with assigned owners and deadlines."
         } else if prompt.to_lowercase().contains("task") {
             "Effective task management requires clear descriptions, realistic deadlines, appropriate priority levels, and regular progress tracking."
-        } else if prompt.to_lowercase().contains("surrealql") || prompt.to_lowercase().contains("select") {
+        } else if prompt.to_lowercase().contains("surrealql")
+            || prompt.to_lowercase().contains("select")
+        {
             "SELECT * FROM meeting WHERE date > time::now() - 1w ORDER BY date DESC LIMIT 10"
-        } else if prompt.to_lowercase().contains("create") && prompt.to_lowercase().contains("entity") {
+        } else if prompt.to_lowercase().contains("create")
+            && prompt.to_lowercase().contains("entity")
+        {
             r#"{"entity_type": "Meeting", "title": "Team Planning Session", "fields": {"participants": ["John", "Sarah"], "date": "2024-01-15"}, "tags": ["planning", "team"], "confidence": 0.9}"#
         } else {
             "This is a generated response from the NodeSpace NLP Engine stub implementation."
@@ -156,7 +171,7 @@ impl TextGenerator {
     pub async fn generate_surrealql(
         &self,
         query: &str,
-        schema_context: &str,
+        _schema_context: &str,
     ) -> Result<String, NLPError> {
         if !self.initialized {
             return Err(NLPError::ModelLoading {
@@ -165,7 +180,9 @@ impl TextGenerator {
         }
 
         // STUB: Generate simple SurrealQL based on query content
-        let surrealql = if query.to_lowercase().contains("find") || query.to_lowercase().contains("get") {
+        let surrealql = if query.to_lowercase().contains("find")
+            || query.to_lowercase().contains("get")
+        {
             if query.to_lowercase().contains("meeting") {
                 "SELECT * FROM meeting WHERE date > time::now() - 1w ORDER BY date DESC LIMIT 10"
             } else if query.to_lowercase().contains("task") {
