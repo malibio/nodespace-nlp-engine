@@ -8,13 +8,13 @@ use std::path::PathBuf;
 pub struct NLPConfig {
     /// Model configurations
     pub models: ModelConfigs,
-    
+
     /// Device configuration (CPU, CUDA, Metal)
     pub device: DeviceConfig,
-    
+
     /// Cache configuration
     pub cache: CacheConfig,
-    
+
     /// Performance settings
     pub performance: PerformanceConfig,
 }
@@ -23,7 +23,7 @@ pub struct NLPConfig {
 pub struct ModelConfigs {
     /// Embedding model configuration
     pub embedding: EmbeddingModelConfig,
-    
+
     /// Text generation model configuration (Mistral.rs)
     pub text_generation: TextGenerationModelConfig,
 }
@@ -32,16 +32,16 @@ pub struct ModelConfigs {
 pub struct EmbeddingModelConfig {
     /// Model name or path
     pub model_name: String,
-    
+
     /// Local model path (if downloaded)
     pub model_path: Option<PathBuf>,
-    
+
     /// Embedding dimensions
     pub dimensions: usize,
-    
+
     /// Maximum sequence length
     pub max_sequence_length: usize,
-    
+
     /// Normalization settings
     pub normalize: bool,
 }
@@ -50,13 +50,13 @@ pub struct EmbeddingModelConfig {
 pub struct TextGenerationModelConfig {
     /// Model name (Magistral-Small-2506)
     pub model_name: String,
-    
+
     /// Local model path
     pub model_path: Option<PathBuf>,
-    
+
     /// Maximum context length
     pub max_context_length: usize,
-    
+
     /// Default generation parameters
     pub default_temperature: f32,
     pub default_max_tokens: u32,
@@ -67,10 +67,10 @@ pub struct TextGenerationModelConfig {
 pub struct DeviceConfig {
     /// Preferred device type
     pub device_type: DeviceType,
-    
+
     /// GPU device ID (for CUDA)
     pub gpu_device_id: Option<usize>,
-    
+
     /// Memory limits
     pub max_memory_gb: Option<f32>,
 }
@@ -87,13 +87,13 @@ pub enum DeviceType {
 pub struct CacheConfig {
     /// Enable model caching
     pub enable_model_cache: bool,
-    
+
     /// Enable embedding caching
     pub enable_embedding_cache: bool,
-    
+
     /// Maximum cache size (in MB)
     pub max_cache_size_mb: usize,
-    
+
     /// Cache TTL in seconds
     pub cache_ttl_seconds: u64,
 }
@@ -102,13 +102,13 @@ pub struct CacheConfig {
 pub struct PerformanceConfig {
     /// Number of threads for CPU inference
     pub cpu_threads: Option<usize>,
-    
+
     /// Batch size for embedding generation
     pub embedding_batch_size: usize,
-    
+
     /// Enable async processing
     pub enable_async_processing: bool,
-    
+
     /// Connection pool size for concurrent requests
     pub pool_size: usize,
 }
@@ -125,12 +125,12 @@ impl Default for NLPConfig {
                     normalize: true,
                 },
                 text_generation: TextGenerationModelConfig {
-                    model_name: "mistralai/Magistral-Small-2506".to_string(),
+                    model_name: "mistralai/Magistral-Small-2506_gguf".to_string(),
                     model_path: None,
-                    max_context_length: 128000,
+                    max_context_length: 40000, // Recommended max for Magistral-Small
                     default_temperature: 0.7,
                     default_max_tokens: 2048,
-                    default_top_p: 0.9,
+                    default_top_p: 0.95, // Recommended for Magistral-Small
                 },
             },
             device: DeviceConfig {
