@@ -26,7 +26,7 @@ pub use error::NLPError;
 /// NLP Engine Service Interface
 ///
 /// Minimal interface for AI/ML operations using Mistral.rs and embedding generation.
-/// This is re-exported from the contracts for implementation.
+/// NLP Engine Service Interface - owned and exported by this repository.
 #[async_trait]
 pub trait NLPEngine: Send + Sync {
     /// Generate vector embedding for text content

@@ -3,18 +3,17 @@
 
 use crate::error::NLPError;
 use crate::models::{DeviceType, TextGenerationModelConfig};
-use crate::utils::metrics::Timer;
 #[cfg(feature = "real-ml")]
 use crate::utils::device;
-
+use crate::utils::metrics::Timer;
 
 // Real ML dependencies using unified Candle stack
 #[cfg(feature = "real-ml")]
-use candle_core::{Device, Tensor, DType, IndexOp};
+use candle_core::{DType, Device, IndexOp, Tensor};
+#[cfg(feature = "real-ml")]
+use candle_nn::{Activation, VarBuilder};
 #[cfg(feature = "real-ml")]
 use candle_transformers::models::mistral::{Config as MistralConfig, Model as MistralModel};
-#[cfg(feature = "real-ml")]
-use candle_nn::{VarBuilder, Activation};
 #[cfg(feature = "real-ml")]
 use hf_hub::api::tokio::Api;
 #[cfg(feature = "real-ml")]
@@ -37,7 +36,10 @@ pub struct TextGenerator {
 
 impl TextGenerator {
     /// Create a new text generator
-    pub fn new(config: TextGenerationModelConfig, device_type: DeviceType) -> Result<Self, NLPError> {
+    pub fn new(
+        config: TextGenerationModelConfig,
+        device_type: DeviceType,
+    ) -> Result<Self, NLPError> {
         #[cfg(feature = "real-ml")]
         {
             let device = device::create_device(device_type)?;
@@ -60,7 +62,6 @@ impl TextGenerator {
         }
     }
 
-
     /// Initialize the text generation model
     pub async fn initialize(&mut self) -> Result<(), NLPError> {
         let _timer = Timer::new("text_generation_model_initialization");
@@ -71,7 +72,10 @@ impl TextGenerator {
 
         #[cfg(feature = "real-ml")]
         {
-            tracing::info!("Loading real text generation model: {}", self.config.model_name);
+            tracing::info!(
+                "Loading real text generation model: {}",
+                self.config.model_name
+            );
             self.load_candle_model().await?;
             tracing::info!(
                 "Real text generation model initialized successfully: {}",
@@ -93,8 +97,11 @@ impl TextGenerator {
 
     #[cfg(feature = "real-ml")]
     async fn load_candle_model(&mut self) -> Result<(), NLPError> {
-        tracing::info!("Loading Mistral model with candle-transformers: {}", self.config.model_name);
-        
+        tracing::info!(
+            "Loading Mistral model with candle-transformers: {}",
+            self.config.model_name
+        );
+
         // Initialize Hugging Face Hub API
         let api = Api::new().map_err(|e| NLPError::ModelLoading {
             message: format!("Failed to initialize HF API: {}", e),
@@ -103,38 +110,40 @@ impl TextGenerator {
         let repo = api.model(self.config.model_name.clone());
 
         // Download tokenizer
-        let tokenizer_file = repo.get("tokenizer.json")
-            .await
-            .map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to download tokenizer: {}", e),
-            })?;
+        let tokenizer_file =
+            repo.get("tokenizer.json")
+                .await
+                .map_err(|e| NLPError::ModelLoading {
+                    message: format!("Failed to download tokenizer: {}", e),
+                })?;
 
-        let tokenizer = Tokenizer::from_file(&tokenizer_file)
-            .map_err(|e| NLPError::ModelLoading {
+        let tokenizer =
+            Tokenizer::from_file(&tokenizer_file).map_err(|e| NLPError::ModelLoading {
                 message: format!("Failed to load tokenizer: {}", e),
             })?;
 
         // Download model configuration
-        let config_file = repo.get("config.json")
+        let config_file = repo
+            .get("config.json")
             .await
             .map_err(|e| NLPError::ModelLoading {
                 message: format!("Failed to download config: {}", e),
             })?;
 
-        let config_content = std::fs::read_to_string(&config_file)
-            .map_err(|e| NLPError::ModelLoading {
+        let config_content =
+            std::fs::read_to_string(&config_file).map_err(|e| NLPError::ModelLoading {
                 message: format!("Failed to read config: {}", e),
             })?;
 
-        let model_config: serde_json::Value = serde_json::from_str(&config_content)
-            .map_err(|e| NLPError::ModelLoading {
+        let model_config: serde_json::Value =
+            serde_json::from_str(&config_content).map_err(|e| NLPError::ModelLoading {
                 message: format!("Failed to parse config: {}", e),
             })?;
 
         // Download model weights (try different file names)
         let weight_files = vec!["model.safetensors", "pytorch_model.bin"];
         let mut model_file = None;
-        
+
         for filename in weight_files {
             if let Ok(file) = repo.get(filename).await {
                 model_file = Some(file);
@@ -152,10 +161,9 @@ impl TextGenerator {
             hidden_size: model_config["hidden_size"].as_u64().unwrap_or(4096) as usize,
             intermediate_size: model_config["intermediate_size"].as_u64().unwrap_or(14336) as usize,
             num_hidden_layers: model_config["num_hidden_layers"].as_u64().unwrap_or(32) as usize,
-            num_attention_heads: model_config["num_attention_heads"].as_u64().unwrap_or(32) as usize,
-            num_key_value_heads: model_config["num_key_value_heads"]
-                .as_u64()
-                .unwrap_or(8) as usize,
+            num_attention_heads: model_config["num_attention_heads"].as_u64().unwrap_or(32)
+                as usize,
+            num_key_value_heads: model_config["num_key_value_heads"].as_u64().unwrap_or(8) as usize,
             max_position_embeddings: model_config["max_position_embeddings"]
                 .as_u64()
                 .unwrap_or(32768) as usize,
@@ -164,15 +172,16 @@ impl TextGenerator {
             rope_theta: model_config["rope_theta"].as_f64().unwrap_or(10000.0),
             head_dim: model_config["head_dim"].as_u64().map(|v| v as usize), // New field in 0.9.1
             hidden_act: Activation::Silu, // Use Mistral's activation
-            use_flash_attn: false, // Disable flash attention for compatibility
+            use_flash_attn: false,        // Disable flash attention for compatibility
         };
 
         // Load model weights
         let weights = if model_file.to_string_lossy().ends_with(".safetensors") {
-            candle_core::safetensors::load(&model_file, &self.device)
-                .map_err(|e| NLPError::ModelLoading {
+            candle_core::safetensors::load(&model_file, &self.device).map_err(|e| {
+                NLPError::ModelLoading {
                     message: format!("Failed to load safetensors weights: {}", e),
-                })?
+                }
+            })?
         } else {
             return Err(NLPError::ModelLoading {
                 message: "Only safetensors format is supported".to_string(),
@@ -182,15 +191,17 @@ impl TextGenerator {
         let vb = VarBuilder::from_tensors(weights, DType::F32, &self.device);
 
         // Create Mistral model
-        let model = MistralModel::new(&mistral_config, vb)
-            .map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to create Mistral model: {}", e),
-            })?;
+        let model = MistralModel::new(&mistral_config, vb).map_err(|e| NLPError::ModelLoading {
+            message: format!("Failed to create Mistral model: {}", e),
+        })?;
 
         self.model = Some(model);
         self.tokenizer = Some(tokenizer);
-        
-        tracing::info!("Successfully loaded Mistral model with candle-transformers: {}", self.config.model_name);
+
+        tracing::info!(
+            "Successfully loaded Mistral model with candle-transformers: {}",
+            self.config.model_name
+        );
         Ok(())
     }
 
@@ -223,7 +234,8 @@ impl TextGenerator {
 
         #[cfg(feature = "real-ml")]
         {
-            self.generate_real_text(prompt, max_tokens, temperature, top_p).await
+            self.generate_real_text(prompt, max_tokens, temperature, top_p)
+                .await
         }
 
         #[cfg(not(feature = "real-ml"))]
@@ -246,19 +258,24 @@ impl TextGenerator {
             message: "Model not loaded".to_string(),
         })?;
 
-        let tokenizer = self.tokenizer.as_ref().ok_or_else(|| NLPError::ModelLoading {
-            message: "Tokenizer not loaded".to_string(),
-        })?;
+        let tokenizer = self
+            .tokenizer
+            .as_ref()
+            .ok_or_else(|| NLPError::ModelLoading {
+                message: "Tokenizer not loaded".to_string(),
+            })?;
 
         // Create system prompt for NodeSpace
         let system_prompt = "You are a helpful AI assistant for NodeSpace, a distributed system for managing entities, tasks, and meetings.";
         let full_prompt = format!("{}\n\nUser: {}\nAssistant:", system_prompt, prompt);
 
         // Tokenize the input
-        let encoding = tokenizer.encode(full_prompt, true)
-            .map_err(|e| NLPError::ProcessingError {
-                message: format!("Tokenization failed: {}", e),
-            })?;
+        let encoding =
+            tokenizer
+                .encode(full_prompt, true)
+                .map_err(|e| NLPError::ProcessingError {
+                    message: format!("Tokenization failed: {}", e),
+                })?;
 
         let tokens = encoding.get_ids();
         let input_ids = Tensor::new(tokens, &self.device)
@@ -273,13 +290,15 @@ impl TextGenerator {
         // Generate tokens using a simple sampling approach
         let mut generated_tokens = Vec::new();
         let mut current_input = input_ids;
-        
+
         for _ in 0..max_tokens {
             // Forward pass
-            let logits = model.forward(&current_input, 0)
-                .map_err(|e| NLPError::ProcessingError {
-                    message: format!("Model forward pass failed: {}", e),
-                })?;
+            let logits =
+                model
+                    .forward(&current_input, 0)
+                    .map_err(|e| NLPError::ProcessingError {
+                        message: format!("Model forward pass failed: {}", e),
+                    })?;
 
             // Get logits for the last token
             let seq_len = logits.dim(1).map_err(|e| NLPError::ProcessingError {
@@ -297,10 +316,9 @@ impl TextGenerator {
 
             // Apply temperature
             let scaled_logits = if temperature > 0.0 {
-                (last_logits / temperature as f64)
-                    .map_err(|e| NLPError::ProcessingError {
-                        message: format!("Failed to apply temperature: {}", e),
-                    })?
+                (last_logits / temperature as f64).map_err(|e| NLPError::ProcessingError {
+                    message: format!("Failed to apply temperature: {}", e),
+                })?
             } else {
                 last_logits
             };
@@ -333,17 +351,20 @@ impl TextGenerator {
                     message: format!("Failed to unsqueeze next token tensor: {}", e),
                 })?;
 
-            current_input = Tensor::cat(&[&current_input, &next_token_tensor], 1)
-                .map_err(|e| NLPError::ProcessingError {
+            current_input = Tensor::cat(&[&current_input, &next_token_tensor], 1).map_err(|e| {
+                NLPError::ProcessingError {
                     message: format!("Failed to concatenate tokens: {}", e),
-                })?;
+                }
+            })?;
         }
 
         // Decode generated tokens
-        let generated_text = tokenizer.decode(&generated_tokens, true)
-            .map_err(|e| NLPError::ProcessingError {
-                message: format!("Failed to decode generated tokens: {}", e),
-            })?;
+        let generated_text =
+            tokenizer
+                .decode(&generated_tokens, true)
+                .map_err(|e| NLPError::ProcessingError {
+                    message: format!("Failed to decode generated tokens: {}", e),
+                })?;
 
         Ok(generated_text.trim().to_string())
     }
