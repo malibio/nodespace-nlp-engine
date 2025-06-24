@@ -195,9 +195,9 @@ impl LocalNLPEngine {
                 })?;
 
         let text_generator = self.get_text_generator().await?;
-        let text_generator = text_generator.read().await;
+        let mut text_generator = text_generator.write().await;
         let text_generator = text_generator
-            .as_ref()
+            .as_mut()
             .ok_or_else(|| NLPError::ModelLoading {
                 message: "Text generator not initialized".to_string(),
             })?;
@@ -297,8 +297,8 @@ impl NLPEngine for LocalNLPEngine {
             .await
             .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
 
-        let generator = generator.read().await;
-        let generator = generator.as_ref().ok_or_else(|| {
+        let mut generator = generator.write().await;
+        let generator = generator.as_mut().ok_or_else(|| {
             NodeSpaceError::ProcessingError("Text generator not initialized".to_string())
         })?;
 
