@@ -14,15 +14,12 @@ nodespace-core-types = { path = "../nodespace-core-types" }
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
-# AI/ML and model inference (compatible stable versions)
-candle-core = { version = "0.8.4", optional = true }
-candle-nn = { version = "0.8.4", optional = true }
-candle-transformers = { version = "0.8.4", optional = true }
+# AI/ML and model inference (unified Candle stack)
+candle-core = { version = "0.9.1", features = ["metal"], optional = true }
+candle-nn = { version = "0.9.1", optional = true }
+candle-transformers = { version = "0.9.1", optional = true }
 hf-hub = { version = "0.4.2", features = ["tokio"], optional = true }
 safetensors = { version = "0.4", optional = true }
-
-# LLM inference with Metal support for Apple Silicon
-mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", features = ["metal"], optional = true }
 
 # Optional LLM backend alternative
 llama-cpp-2 = { version = "0.1.107", optional = true }
@@ -55,7 +52,7 @@ tracing-subscriber = "0.3"
 
 [features]
 default = ["real-ml"]
-real-ml = ["candle-core", "candle-nn", "candle-transformers", "mistralrs", "tokenizers", "hf-hub", "safetensors"]
+real-ml = ["candle-core", "candle-nn", "candle-transformers", "tokenizers", "hf-hub", "safetensors"]
 llama-cpp = ["llama-cpp-2", "real-ml"]
 cpu-only = ["real-ml"]
 
