@@ -25,7 +25,7 @@ This repository implements the complete AI/ML layer for NodeSpace, providing emb
 
 ## 🔗 Dependencies
 
-- **`nodespace-core-types`** - Data structures and `NLPEngine` trait interface
+- **`nodespace-core-types`** - Shared data structures and error types
 - **SurrealDB client** - For schema introspection and query validation
 - **mistral.rs** - High-performance LLM inference with Metal acceleration on Apple Silicon
 - **Candle** - Rust-native ML framework for embedding generation
@@ -36,8 +36,8 @@ This repository implements the complete AI/ML layer for NodeSpace, providing emb
 ### **New to NodeSpace? Start Here:**
 1. **Read [NodeSpace System Design](../nodespace-system-design/README.md)** - Understand the full architecture
 2. **Check [Linear workspace](https://linear.app/nodespace)** - Find your current tasks (filter by `nodespace-nlp-engine`)
-3. **Review [Development Workflow](../nodespace-system-design/docs/development-workflow.md)** - Process and procedures
-4. **Study [Key Contracts](../nodespace-system-design/contracts/)** - Interface definitions you'll implement
+3. **Review [Development Workflow](../nodespace-system-design/docs/development/workflow.md)** - Process and procedures
+4. **Study [NLP Engine Interface](src/lib.rs)** - Interface definitions owned by this repository
 5. **See [MVP User Flow](../nodespace-system-design/examples/mvp-user-flow.md)** - What you're building
 
 ### **Development Setup:**
@@ -47,8 +47,8 @@ This repository implements the complete AI/ML layer for NodeSpace, providing emb
 nodespace-nlp-engine = { git = "https://github.com/malibio/nodespace-nlp-engine" }
 
 # Use in your code
-use nodespace_nlp_engine::LocalNLPEngine;
-use nodespace_core_types::{NLPEngine, EmbeddingRequest};
+use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
+use nodespace_core_types::NodeSpaceResult;
 
 let engine = LocalNLPEngine::new().await?;
 let embedding = engine.generate_embedding(request).await?;
@@ -87,7 +87,7 @@ The engine now includes production-ready AI capabilities:
 - ✅ **Real text generation** - mistralai/Magistral-Small-2506 (23B) GGUF via mistral.rs
 - ✅ **Metal acceleration** - Optimized for Apple Silicon (36GB model on Metal)
 - ✅ **Fast inference** - ~13ms response time after model warm-up
-- ✅ **Contract compliance** - Full `NLPEngine` trait implementation
+- ✅ **Trait compliance** - Full `NLPEngine` trait implementation
 - ✅ **GGUF support** - Q8_0 quantization for performance/quality balance
 
 ### Model Configuration

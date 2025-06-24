@@ -3,9 +3,9 @@
 
 use crate::error::NLPError;
 use crate::models::{DeviceType, EmbeddingModelConfig};
-use crate::utils::{metrics::Timer, vector};
 #[cfg(feature = "real-ml")]
 use crate::utils::device;
+use crate::utils::{metrics::Timer, vector};
 
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -64,7 +64,6 @@ impl EmbeddingGenerator {
             })
         }
     }
-
 
     /// Initialize the model and tokenizer
     pub async fn initialize(&mut self) -> Result<(), NLPError> {

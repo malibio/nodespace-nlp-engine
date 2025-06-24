@@ -243,7 +243,12 @@ impl LocalNLPEngine {
 
     /// Get cache statistics
     pub async fn cache_stats(&self) -> CacheStats {
-        let embedding_cache = self.embedding_generator.read().await.as_ref().map(|embedding_gen| embedding_gen.cache_stats());
+        let embedding_cache = self
+            .embedding_generator
+            .read()
+            .await
+            .as_ref()
+            .map(|embedding_gen| embedding_gen.cache_stats());
 
         CacheStats {
             embedding_cache_size: embedding_cache.map(|(size, _)| size).unwrap_or(0),

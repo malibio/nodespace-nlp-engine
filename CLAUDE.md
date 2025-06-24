@@ -2,7 +2,7 @@
 
 🚨 **STOP - READ WORKFLOW FIRST** 🚨
 Before doing ANYTHING else, you MUST read the development workflow:
-1. Read: `../nodespace-system-design/docs/development-workflow.md`
+1. Read: `../nodespace-system-design/docs/development/workflow.md`
 2. Check Linear for current tasks
 3. Then return here for implementation guidance
 
