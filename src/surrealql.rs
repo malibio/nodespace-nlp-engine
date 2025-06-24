@@ -28,7 +28,7 @@ impl SurrealQLGenerator {
     /// Generate SurrealQL from natural language with schema context
     pub async fn generate_surrealql(
         &self,
-        text_generator: &TextGenerator,
+        text_generator: &mut TextGenerator,
         natural_query: &str,
         schema_context: &str,
         safety_checks: bool,
@@ -57,7 +57,7 @@ impl SurrealQLGenerator {
     /// Generate a CREATE statement for entity creation
     pub async fn generate_create_statement(
         &self,
-        text_generator: &TextGenerator,
+        text_generator: &mut TextGenerator,
         entity_type: &str,
         fields: &HashMap<String, serde_json::Value>,
         schema_context: &str,
@@ -95,7 +95,7 @@ SurrealQL:"#,
     /// Generate a SELECT statement for entity search
     pub async fn generate_select_statement(
         &self,
-        text_generator: &TextGenerator,
+        text_generator: &mut TextGenerator,
         search_criteria: &SearchCriteria,
         schema_context: &str,
     ) -> Result<String, NLPError> {
@@ -136,7 +136,7 @@ SurrealQL:"#,
     /// Generate a RELATE statement for relationship creation
     pub async fn generate_relate_statement(
         &self,
-        text_generator: &TextGenerator,
+        text_generator: &mut TextGenerator,
         from_entity: &str,
         to_entity: &str,
         relationship_type: &str,
