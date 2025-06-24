@@ -141,7 +141,7 @@ pub mod vector {
 pub mod device {
     use crate::error::NLPError;
     use crate::models::DeviceType;
-    
+
     #[cfg(feature = "real-ml")]
     use candle_core::Device;
 
@@ -213,8 +213,8 @@ pub mod device {
     /// Device memory information
     #[derive(Debug, Clone)]
     pub struct DeviceMemoryInfo {
-        pub total_memory: Option<u64>,      // Total memory in bytes
-        pub available_memory: Option<u64>,  // Available memory in bytes
+        pub total_memory: Option<u64>,     // Total memory in bytes
+        pub available_memory: Option<u64>, // Available memory in bytes
         pub device_name: String,
     }
 
@@ -240,7 +240,6 @@ pub mod device {
         }
     }
 }
-
 
 /// Performance monitoring utilities
 pub mod metrics {
