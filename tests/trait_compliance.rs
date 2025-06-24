@@ -1,4 +1,7 @@
-//! Contract compliance tests for the NLP Engine
+//! Trait compliance tests for the NLP Engine
+//!
+//! Tests that verify the NLPEngine trait implementation meets all interface requirements.
+//! This repository owns and exports the NLPEngine trait definition.
 
 use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 
