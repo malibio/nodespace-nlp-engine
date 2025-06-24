@@ -7,15 +7,14 @@ use crate::utils::metrics::Timer;
 #[cfg(feature = "real-ml")]
 use crate::utils::device;
 
+
 // Real ML dependencies using unified Candle stack
 #[cfg(feature = "real-ml")]
 use candle_core::{Device, Tensor, DType, IndexOp};
 #[cfg(feature = "real-ml")]
 use candle_transformers::models::mistral::{Config as MistralConfig, Model as MistralModel};
 #[cfg(feature = "real-ml")]
-use candle_transformers::models::bert::HiddenAct;
-#[cfg(feature = "real-ml")]
-use candle_nn::VarBuilder;
+use candle_nn::{VarBuilder, Activation};
 #[cfg(feature = "real-ml")]
 use hf_hub::api::tokio::Api;
 #[cfg(feature = "real-ml")]
@@ -164,7 +163,7 @@ impl TextGenerator {
             rms_norm_eps: model_config["rms_norm_eps"].as_f64().unwrap_or(1e-6),
             rope_theta: model_config["rope_theta"].as_f64().unwrap_or(10000.0),
             head_dim: model_config["head_dim"].as_u64().map(|v| v as usize), // New field in 0.9.1
-            hidden_act: HiddenAct::Gelu, // Use available activation
+            hidden_act: Activation::Silu, // Use Mistral's activation
             use_flash_attn: false, // Disable flash attention for compatibility
         };
 
@@ -350,7 +349,7 @@ impl TextGenerator {
     }
 
     #[cfg(not(feature = "real-ml"))]
-    async fn generate_stub_text(&mut self, prompt: &str) -> Result<String, NLPError> {
+    async fn generate_stub_text(&self, prompt: &str) -> Result<String, NLPError> {
         // STUB: Generate deterministic responses based on prompt content
         let response = if prompt.to_lowercase().contains("meeting") {
             "A productive meeting involves clear agenda items, active participation from all attendees, and defined action items with assigned owners and deadlines."
