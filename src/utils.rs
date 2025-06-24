@@ -137,20 +137,110 @@ pub mod vector {
     }
 }
 
-/// Device detection and management
+/// Unified device management for AI models
 pub mod device {
+    use crate::error::NLPError;
     use crate::models::DeviceType;
+    
+    #[cfg(feature = "real-ml")]
+    use candle_core::Device;
 
-    /// Detect the best available device for inference
+    /// Create a Candle device based on the device type preference
+    #[cfg(feature = "real-ml")]
+    pub fn create_device(device_type: DeviceType) -> Result<Device, NLPError> {
+        match device_type {
+            DeviceType::CPU => Ok(Device::Cpu),
+            DeviceType::CUDA => Device::new_cuda(0).map_err(|e| NLPError::ModelLoading {
+                message: format!("Failed to initialize CUDA device: {}", e),
+            }),
+            DeviceType::Metal => Device::new_metal(0).map_err(|e| NLPError::ModelLoading {
+                message: format!("Failed to initialize Metal device: {}", e),
+            }),
+            DeviceType::Auto => {
+                // Try Metal first (for Apple Silicon), then CUDA, then CPU
+                if Device::new_metal(0).is_ok() {
+                    tracing::info!("Auto device selection: Using Metal (Apple Silicon)");
+                    Device::new_metal(0).map_err(|e| NLPError::ModelLoading {
+                        message: format!("Auto device selection failed: {}", e),
+                    })
+                } else if Device::new_cuda(0).is_ok() {
+                    tracing::info!("Auto device selection: Using CUDA");
+                    Device::new_cuda(0).map_err(|e| NLPError::ModelLoading {
+                        message: format!("Auto device selection failed: {}", e),
+                    })
+                } else {
+                    tracing::info!("Auto device selection: Using CPU");
+                    Ok(Device::Cpu)
+                }
+            }
+        }
+    }
+
+    /// Get device type from a Candle Device for reporting
+    #[cfg(feature = "real-ml")]
+    pub fn device_to_type(device: &Device) -> DeviceType {
+        match device {
+            Device::Cpu => DeviceType::CPU,
+            Device::Cuda(_) => DeviceType::CUDA,
+            Device::Metal(_) => DeviceType::Metal,
+        }
+    }
+
+    /// Check if Metal acceleration is available
+    #[cfg(feature = "real-ml")]
+    pub fn is_metal_available() -> bool {
+        Device::new_metal(0).is_ok()
+    }
+
+    /// Check if CUDA acceleration is available
+    #[cfg(feature = "real-ml")]
+    pub fn is_cuda_available() -> bool {
+        Device::new_cuda(0).is_ok()
+    }
+
+    /// Get the best available device automatically
+    #[cfg(feature = "real-ml")]
+    pub fn best_available_device() -> Result<Device, NLPError> {
+        create_device(DeviceType::Auto)
+    }
+
+    /// Detect the best available device for inference (stub version)
+    #[cfg(not(feature = "real-ml"))]
     pub fn detect_best_device() -> DeviceType {
-        // For now, return CPU since we don't have cuda/metal features
-        // TODO: Add proper device detection when features are enabled
-
         DeviceType::CPU
     }
 
-    // Device detection functions removed since features not available
+    /// Device memory information
+    #[derive(Debug, Clone)]
+    pub struct DeviceMemoryInfo {
+        pub total_memory: Option<u64>,      // Total memory in bytes
+        pub available_memory: Option<u64>,  // Available memory in bytes
+        pub device_name: String,
+    }
+
+    /// Get device memory information (stub implementation)
+    #[cfg(feature = "real-ml")]
+    pub fn get_device_memory_info(device: &Device) -> DeviceMemoryInfo {
+        match device {
+            Device::Cpu => DeviceMemoryInfo {
+                total_memory: None, // CPU memory is system dependent
+                available_memory: None,
+                device_name: "CPU".to_string(),
+            },
+            Device::Cuda(_) => DeviceMemoryInfo {
+                total_memory: Some(8 * 1024 * 1024 * 1024), // Placeholder: 8GB
+                available_memory: Some(6 * 1024 * 1024 * 1024), // Placeholder: 6GB
+                device_name: "CUDA GPU".to_string(),
+            },
+            Device::Metal(_) => DeviceMemoryInfo {
+                total_memory: Some(16 * 1024 * 1024 * 1024), // Placeholder: 16GB unified memory
+                available_memory: Some(12 * 1024 * 1024 * 1024), // Placeholder: 12GB
+                device_name: "Apple Silicon Metal".to_string(),
+            },
+        }
+    }
 }
+
 
 /// Performance monitoring utilities
 pub mod metrics {

@@ -4,6 +4,8 @@
 use crate::error::NLPError;
 use crate::models::{DeviceType, EmbeddingModelConfig};
 use crate::utils::{metrics::Timer, vector};
+#[cfg(feature = "real-ml")]
+use crate::utils::device;
 
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -41,7 +43,7 @@ impl EmbeddingGenerator {
     pub fn new(config: EmbeddingModelConfig, device_type: DeviceType) -> Result<Self, NLPError> {
         #[cfg(feature = "real-ml")]
         {
-            let device = Self::create_device(device_type)?;
+            let device = device::create_device(device_type)?;
             Ok(Self {
                 config,
                 device,
@@ -63,32 +65,6 @@ impl EmbeddingGenerator {
         }
     }
 
-    #[cfg(feature = "real-ml")]
-    fn create_device(device_type: DeviceType) -> Result<Device, NLPError> {
-        match device_type {
-            DeviceType::CPU => Ok(Device::Cpu),
-            DeviceType::CUDA => Device::new_cuda(0).map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to initialize CUDA device: {}", e),
-            }),
-            DeviceType::Metal => Device::new_metal(0).map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to initialize Metal device: {}", e),
-            }),
-            DeviceType::Auto => {
-                // Try Metal first (for Apple Silicon), then CUDA, then CPU
-                if Device::new_metal(0).is_ok() {
-                    Device::new_metal(0).map_err(|e| NLPError::ModelLoading {
-                        message: format!("Auto device selection failed: {}", e),
-                    })
-                } else if Device::new_cuda(0).is_ok() {
-                    Device::new_cuda(0).map_err(|e| NLPError::ModelLoading {
-                        message: format!("Auto device selection failed: {}", e),
-                    })
-                } else {
-                    Ok(Device::Cpu)
-                }
-            }
-        }
-    }
 
     /// Initialize the model and tokenizer
     pub async fn initialize(&mut self) -> Result<(), NLPError> {
