@@ -43,6 +43,11 @@ impl LocalNLPEngine {
         }
     }
 
+    /// Set the model path for text generation (convenience method for clients)
+    pub fn set_model_path<P: Into<std::path::PathBuf>>(&mut self, model_path: P) {
+        self.config.models.text_generation.model_path = Some(model_path.into());
+    }
+
     /// Initialize all components of the NLP engine
     pub async fn initialize(&self) -> Result<(), NLPError> {
         let _timer = Timer::new("nlp_engine_initialization");

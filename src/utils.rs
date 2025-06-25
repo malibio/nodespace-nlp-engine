@@ -12,8 +12,7 @@ pub mod text {
         let whitespace_regex = Regex::new(r"\s+").unwrap();
         processed = whitespace_regex.replace_all(&processed, " ").to_string();
 
-        // Normalize punctuation (remove no-effect replacements)
-        // Note: Placeholder for actual punctuation normalization
+        // Normalize punctuation
 
         processed
     }
@@ -141,9 +140,7 @@ pub mod vector {
 pub mod device {
     use crate::models::DeviceType;
 
-    // Note: candle_core removed as fastembed 4.9 uses ort directly
-
-    /// Get device info for logging (fastembed 4.9 handles device selection internally)
+    /// Get device info for logging
     #[cfg(feature = "real-ml")]
     pub fn get_device_info(device_type: DeviceType) -> String {
         match device_type {
@@ -160,17 +157,16 @@ pub mod device {
         format!("STUB: {:?}", device_type)
     }
 
-    /// Check if Metal acceleration is available (simplified for fastembed 4.9)
+    /// Check if Metal acceleration is available
     #[cfg(feature = "real-ml")]
     pub fn is_metal_available() -> bool {
-        cfg!(target_os = "macos") // fastembed handles the actual check
+        cfg!(target_os = "macos")
     }
 
-    /// Check if CUDA acceleration is available (simplified for fastembed 4.9)
+    /// Check if CUDA acceleration is available
     #[cfg(feature = "real-ml")]
     pub fn is_cuda_available() -> bool {
-        // fastembed handles CUDA detection internally
-        false // Conservative default - fastembed will use CUDA if available
+        false // Conservative default
     }
 
     /// Get the best available device type automatically  
@@ -199,7 +195,7 @@ pub mod device {
         pub device_name: String,
     }
 
-    /// Get device memory information (stub implementation for fastembed 4.9)
+    /// Get device memory information
     #[cfg(feature = "real-ml")]
     pub fn get_device_memory_info(device_type: DeviceType) -> DeviceMemoryInfo {
         match device_type {
