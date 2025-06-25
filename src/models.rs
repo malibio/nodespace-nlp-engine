@@ -24,7 +24,7 @@ pub struct ModelConfigs {
     /// Embedding model configuration
     pub embedding: EmbeddingModelConfig,
 
-    /// Text generation model configuration (Mistral.rs)
+    /// Text generation model configuration (ONNX Runtime)
     pub text_generation: TextGenerationModelConfig,
 }
 
@@ -48,10 +48,10 @@ pub struct EmbeddingModelConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextGenerationModelConfig {
-    /// Model name (Magistral-Small-2506)
+    /// Model name (Gemma 3 1B Instruct)
     pub model_name: String,
 
-    /// Local model path
+    /// Local model path (ONNX format)
     pub model_path: Option<PathBuf>,
 
     /// Maximum context length
@@ -118,19 +118,19 @@ impl Default for NLPConfig {
         Self {
             models: ModelConfigs {
                 embedding: EmbeddingModelConfig {
-                    model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+                    model_name: "BAAI/bge-small-en-v1.5".to_string(),
                     model_path: None,
                     dimensions: 384,
                     max_sequence_length: 512,
                     normalize: true,
                 },
                 text_generation: TextGenerationModelConfig {
-                    model_name: "mistralai/Magistral-Small-2506_gguf".to_string(),
-                    model_path: None,
-                    max_context_length: 40000, // Recommended max for Magistral-Small
+                    model_name: "google/gemma-2-2b-it".to_string(),
+                    model_path: Some(PathBuf::from("models/gemma-3-1b-it-onnx/model.onnx")),
+                    max_context_length: 8192, // Gemma 3 1B context length
                     default_temperature: 0.7,
-                    default_max_tokens: 2048,
-                    default_top_p: 0.95, // Recommended for Magistral-Small
+                    default_max_tokens: 1024,
+                    default_top_p: 0.95,
                 },
             },
             device: DeviceConfig {

@@ -149,6 +149,7 @@ impl LocalNLPEngine {
         Ok(self.text_generator.clone())
     }
 
+
     /// Get the SurrealQL generator (ensuring it's initialized)
     async fn get_surrealql_generator(
         &self,
