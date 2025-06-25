@@ -23,6 +23,12 @@ pub mod utils;
 pub use engine::LocalNLPEngine;
 pub use error::NLPError;
 
+// Re-export configuration types for external configuration
+pub use models::{
+    CacheConfig, DeviceConfig, DeviceType, EmbeddingModelConfig, ModelConfigs, ModelInfo,
+    NLPConfig, PerformanceConfig, TextGenerationModelConfig,
+};
+
 /// NLP Engine Service Interface
 ///
 /// Minimal interface for AI/ML operations using Mistral.rs and embedding generation.
