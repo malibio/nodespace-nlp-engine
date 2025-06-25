@@ -10,24 +10,22 @@ use std::sync::Arc;
 
 // Real ML dependencies (ONNX Runtime + fastembed)
 #[cfg(feature = "real-ml")]
-use fastembed::{EmbeddingModel, FlagEmbedding, InitOptions, TextEmbedding};
+use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 
 /// Embedding generator using fastembed-rs with ONNX Runtime
 pub struct EmbeddingGenerator {
     config: EmbeddingModelConfig,
-    device_type: DeviceType,
     #[cfg(feature = "real-ml")]
-    model: Option<FlagEmbedding>,
+    model: Option<TextEmbedding>,
     cache: Arc<DashMap<String, Vec<f32>>>,
     initialized: bool,
 }
 
 impl EmbeddingGenerator {
     /// Create a new embedding generator
-    pub fn new(config: EmbeddingModelConfig, device_type: DeviceType) -> Result<Self, NLPError> {
+    pub fn new(config: EmbeddingModelConfig, _device_type: DeviceType) -> Result<Self, NLPError> {
         Ok(Self {
             config,
-            device_type,
             #[cfg(feature = "real-ml")]
             model: None,
             cache: Arc::new(DashMap::new()),
@@ -80,17 +78,12 @@ impl EmbeddingGenerator {
         };
 
         // Configure initialization options
-        let init_options = InitOptions {
-            model_name: embedding_model,
-            show_download_progress: true,
-            ..Default::default()
-        };
+        let init_options = InitOptions::new(embedding_model).with_show_download_progress(true);
 
         // Initialize the model
-        let model = FlagEmbedding::try_new(init_options)
-            .map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to initialize fastembed model: {}", e),
-            })?;
+        let model = TextEmbedding::try_new(init_options).map_err(|e| NLPError::ModelLoading {
+            message: format!("Failed to initialize fastembed model: {}", e),
+        })?;
 
         self.model = Some(model);
         Ok(())
@@ -149,7 +142,7 @@ impl EmbeddingGenerator {
             })?;
 
         // Convert to Vec<f32> and normalize if configured
-        let mut final_embedding = embedding;
+        let mut final_embedding = embedding.to_vec();
         if self.config.normalize {
             vector::normalize_vector(&mut final_embedding)?;
         }
@@ -215,34 +208,35 @@ impl EmbeddingGenerator {
 
             // Generate embeddings for uncached texts in batch
             let new_embeddings = if !uncached_texts.is_empty() {
-                model
-                    .embed(uncached_texts.clone(), None)
-                    .map_err(|e| NLPError::ProcessingError {
+                model.embed(uncached_texts.clone(), None).map_err(|e| {
+                    NLPError::ProcessingError {
                         message: format!("Batch embedding generation failed: {}", e),
-                    })?
+                    }
+                })?
             } else {
                 Vec::new()
             };
 
             // Cache new embeddings and combine results
             let mut final_results = vec![Vec::new(); texts.len()];
-            
+
             // Add cached results
             for (index, embedding) in cached_results {
                 final_results[index] = embedding;
             }
 
             // Add new results and cache them
-            for (i, mut embedding) in new_embeddings.into_iter().enumerate() {
+            for (i, embedding) in new_embeddings.into_iter().enumerate() {
+                let mut embedding_vec = embedding.to_vec();
                 if self.config.normalize {
-                    vector::normalize_vector(&mut embedding)?;
+                    vector::normalize_vector(&mut embedding_vec)?;
                 }
-                
+
                 let text_index = uncached_indices[i];
                 let text = &texts[text_index];
-                
-                self.cache.insert(text.clone(), embedding.clone());
-                final_results[text_index] = embedding;
+
+                self.cache.insert(text.clone(), embedding_vec.clone());
+                final_results[text_index] = embedding_vec;
             }
 
             Ok(final_results)
