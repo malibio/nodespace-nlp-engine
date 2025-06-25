@@ -75,9 +75,15 @@ impl TextGenerator {
 
     #[cfg(feature = "real-ml")]
     async fn load_onnx_model(&mut self) -> Result<(), NLPError> {
-        // Look for local Gemma 3 ONNX model
-        let model_path = PathBuf::from("models/gemma-3-1b-it-onnx/model.onnx");
-        let tokenizer_path = PathBuf::from("models/gemma-3-1b-it-onnx/tokenizer.json");
+        // Use client-provided model path or fallback to default
+        let default_path = PathBuf::from("models/gemma-3-1b-it-onnx/model.onnx");
+        let base_model_path = self.config.model_path.as_ref().unwrap_or(&default_path);
+
+        let model_path = base_model_path.clone();
+        let tokenizer_path = base_model_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("models/gemma-3-1b-it-onnx"))
+            .join("tokenizer.json");
 
         if !model_path.exists() {
             return Err(NLPError::ModelLoading {
@@ -91,17 +97,29 @@ impl TextGenerator {
             });
         }
 
-        // Load tokenizer
-        let tokenizer =
-            Tokenizer::from_file(&tokenizer_path).map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to load tokenizer: {}", e),
-            })?;
+        // Try to load tokenizer (may fail if format is incompatible)
+        let tokenizer_result = Tokenizer::from_file(&tokenizer_path);
 
-        // Load tokenizer for future ONNX text generation implementation
-        self.tokenizer = Some(tokenizer);
-        self.model_loaded = true;
+        match tokenizer_result {
+            Ok(tokenizer) => {
+                self.tokenizer = Some(tokenizer);
+                self.model_loaded = true;
+                tracing::info!("ONNX text generation setup complete - tokenizer loaded");
+            }
+            Err(e) => {
+                // Tokenizer format incompatible - continue without tokenizer for now
+                tracing::warn!(
+                    "Tokenizer format incompatible with Rust tokenizers crate: {}. \
+                    Continuing with stub text generation until proper tokenizer is available.",
+                    e
+                );
+                self.tokenizer = None;
+                self.model_loaded = false; // Don't claim model is loaded if tokenizer failed
 
-        tracing::info!("ONNX text generation setup complete - tokenizer loaded");
+                // For now, this is not a fatal error - we can still do embeddings
+                // Text generation will fall back to stub responses
+            }
+        }
 
         Ok(())
     }
@@ -155,10 +173,18 @@ impl TextGenerator {
         _temperature: f32,
         _top_p: f32,
     ) -> Result<String, NLPError> {
-        // For now, return a placeholder response since full ONNX text generation
-        // requires more complex implementation. This maintains API compatibility
-        // while we develop the full ONNX pipeline.
+        // Check if tokenizer is available and compatible
+        if self.tokenizer.is_none() || !self.model_loaded {
+            let response = format!(
+                "ONNX text generation currently unavailable (tokenizer compatibility issue). \
+                Embeddings are working via fastembed. Response to: \"{}\"",
+                prompt
+            );
+            return Ok(response);
+        }
 
+        // Full ONNX text generation implementation would go here
+        // For now, return enhanced placeholder response
         let enhanced_response = format!(
             "Enhanced ONNX response to: {}. This response demonstrates ONNX Runtime integration with fastembed compatibility layer.",
             prompt
