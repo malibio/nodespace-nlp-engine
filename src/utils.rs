@@ -139,69 +139,50 @@ pub mod vector {
 
 /// Unified device management for AI models
 pub mod device {
-    use crate::error::NLPError;
     use crate::models::DeviceType;
 
-    #[cfg(feature = "real-ml")]
-    use candle_core::Device;
+    // Note: candle_core removed as fastembed 4.9 uses ort directly
 
-    /// Create a Candle device based on the device type preference
+    /// Get device info for logging (fastembed 4.9 handles device selection internally)
     #[cfg(feature = "real-ml")]
-    pub fn create_device(device_type: DeviceType) -> Result<Device, NLPError> {
+    pub fn get_device_info(device_type: DeviceType) -> String {
         match device_type {
-            DeviceType::CPU => Ok(Device::Cpu),
-            DeviceType::CUDA => Device::new_cuda(0).map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to initialize CUDA device: {}", e),
-            }),
-            DeviceType::Metal => Device::new_metal(0).map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to initialize Metal device: {}", e),
-            }),
-            DeviceType::Auto => {
-                // Try Metal first (for Apple Silicon), then CUDA, then CPU
-                if Device::new_metal(0).is_ok() {
-                    tracing::info!("Auto device selection: Using Metal (Apple Silicon)");
-                    Device::new_metal(0).map_err(|e| NLPError::ModelLoading {
-                        message: format!("Auto device selection failed: {}", e),
-                    })
-                } else if Device::new_cuda(0).is_ok() {
-                    tracing::info!("Auto device selection: Using CUDA");
-                    Device::new_cuda(0).map_err(|e| NLPError::ModelLoading {
-                        message: format!("Auto device selection failed: {}", e),
-                    })
-                } else {
-                    tracing::info!("Auto device selection: Using CPU");
-                    Ok(Device::Cpu)
-                }
-            }
+            DeviceType::CPU => "CPU".to_string(),
+            DeviceType::CUDA => "CUDA (if available)".to_string(),
+            DeviceType::Metal => "Metal (if available)".to_string(),
+            DeviceType::Auto => "Auto (fastembed selects optimal)".to_string(),
         }
     }
 
-    /// Get device type from a Candle Device for reporting
-    #[cfg(feature = "real-ml")]
-    pub fn device_to_type(device: &Device) -> DeviceType {
-        match device {
-            Device::Cpu => DeviceType::CPU,
-            Device::Cuda(_) => DeviceType::CUDA,
-            Device::Metal(_) => DeviceType::Metal,
-        }
+    /// Stub device info for non-ML builds
+    #[cfg(not(feature = "real-ml"))]
+    pub fn get_device_info(device_type: DeviceType) -> String {
+        format!("STUB: {:?}", device_type)
     }
 
-    /// Check if Metal acceleration is available
+    /// Check if Metal acceleration is available (simplified for fastembed 4.9)
     #[cfg(feature = "real-ml")]
     pub fn is_metal_available() -> bool {
-        Device::new_metal(0).is_ok()
+        cfg!(target_os = "macos") // fastembed handles the actual check
     }
 
-    /// Check if CUDA acceleration is available
+    /// Check if CUDA acceleration is available (simplified for fastembed 4.9)
     #[cfg(feature = "real-ml")]
     pub fn is_cuda_available() -> bool {
-        Device::new_cuda(0).is_ok()
+        // fastembed handles CUDA detection internally
+        false // Conservative default - fastembed will use CUDA if available
     }
 
-    /// Get the best available device automatically
+    /// Get the best available device type automatically  
     #[cfg(feature = "real-ml")]
-    pub fn best_available_device() -> Result<Device, NLPError> {
-        create_device(DeviceType::Auto)
+    pub fn best_available_device_type() -> DeviceType {
+        if is_metal_available() {
+            DeviceType::Metal
+        } else if is_cuda_available() {
+            DeviceType::CUDA
+        } else {
+            DeviceType::CPU
+        }
     }
 
     /// Detect the best available device for inference (stub version)
@@ -218,24 +199,29 @@ pub mod device {
         pub device_name: String,
     }
 
-    /// Get device memory information (stub implementation)
+    /// Get device memory information (stub implementation for fastembed 4.9)
     #[cfg(feature = "real-ml")]
-    pub fn get_device_memory_info(device: &Device) -> DeviceMemoryInfo {
-        match device {
-            Device::Cpu => DeviceMemoryInfo {
+    pub fn get_device_memory_info(device_type: DeviceType) -> DeviceMemoryInfo {
+        match device_type {
+            DeviceType::CPU => DeviceMemoryInfo {
                 total_memory: None, // CPU memory is system dependent
                 available_memory: None,
                 device_name: "CPU".to_string(),
             },
-            Device::Cuda(_) => DeviceMemoryInfo {
+            DeviceType::CUDA => DeviceMemoryInfo {
                 total_memory: Some(8 * 1024 * 1024 * 1024), // Placeholder: 8GB
                 available_memory: Some(6 * 1024 * 1024 * 1024), // Placeholder: 6GB
                 device_name: "CUDA GPU".to_string(),
             },
-            Device::Metal(_) => DeviceMemoryInfo {
+            DeviceType::Metal => DeviceMemoryInfo {
                 total_memory: Some(16 * 1024 * 1024 * 1024), // Placeholder: 16GB unified memory
                 available_memory: Some(12 * 1024 * 1024 * 1024), // Placeholder: 12GB
                 device_name: "Apple Silicon Metal".to_string(),
+            },
+            DeviceType::Auto => DeviceMemoryInfo {
+                total_memory: None,
+                available_memory: None,
+                device_name: "Auto-selected".to_string(),
             },
         }
     }

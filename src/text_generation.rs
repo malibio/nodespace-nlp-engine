@@ -78,7 +78,7 @@ impl TextGenerator {
         // Look for local Gemma 3 ONNX model
         let model_path = PathBuf::from("models/gemma-3-1b-it-onnx/model.onnx");
         let tokenizer_path = PathBuf::from("models/gemma-3-1b-it-onnx/tokenizer.json");
-        
+
         if !model_path.exists() {
             return Err(NLPError::ModelLoading {
                 message: format!("ONNX model not found at: {}", model_path.display()),
@@ -92,15 +92,15 @@ impl TextGenerator {
         }
 
         // Load tokenizer
-        let tokenizer = Tokenizer::from_file(&tokenizer_path)
-            .map_err(|e| NLPError::ModelLoading {
+        let tokenizer =
+            Tokenizer::from_file(&tokenizer_path).map_err(|e| NLPError::ModelLoading {
                 message: format!("Failed to load tokenizer: {}", e),
             })?;
 
         // Load tokenizer for future ONNX text generation implementation
         self.tokenizer = Some(tokenizer);
         self.model_loaded = true;
-        
+
         tracing::info!("ONNX text generation setup complete - tokenizer loaded");
 
         Ok(())
@@ -158,7 +158,7 @@ impl TextGenerator {
         // For now, return a placeholder response since full ONNX text generation
         // requires more complex implementation. This maintains API compatibility
         // while we develop the full ONNX pipeline.
-        
+
         let enhanced_response = format!(
             "Enhanced ONNX response to: {}. This response demonstrates ONNX Runtime integration with fastembed compatibility layer.",
             prompt
