@@ -1,9 +1,13 @@
 //! Text generation using ONNX Runtime with Gemma 3 model
-//! Uses unified ONNX stack for local-first AI processing
+//! Uses unified ONNX stack for local-first AI processing with RAG context support
 
 use crate::error::NLPError;
 use crate::models::{DeviceType, TextGenerationModelConfig};
 use crate::utils::metrics::Timer;
+use crate::{
+    ContextUtilization, EnhancedTextGenerationResponse, GenerationMetrics, RAGContext,
+    TextGenerationRequest,
+};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -165,6 +169,73 @@ impl TextGenerator {
         }
     }
 
+    /// Enhanced text generation with RAG context support
+    pub async fn generate_text_enhanced(
+        &mut self,
+        request: TextGenerationRequest,
+    ) -> Result<EnhancedTextGenerationResponse, NLPError> {
+        let start_time = std::time::Instant::now();
+        let _timer = Timer::new("enhanced_text_generation");
+
+        if !self.initialized {
+            return Err(NLPError::ModelLoading {
+                message: "Model not initialized".to_string(),
+            });
+        }
+
+        // Phase 1: Context validation and prompt assembly
+        let (enhanced_prompt, context_tokens) = self.assemble_rag_prompt(&request)?;
+
+        // Phase 2: Token management - ensure we stay within context window
+        let available_tokens = request
+            .context_window
+            .saturating_sub(context_tokens as usize);
+        let max_response_tokens = std::cmp::min(request.max_tokens, available_tokens);
+
+        if max_response_tokens < 10 {
+            return Err(NLPError::ProcessingError {
+                message: "Insufficient tokens available for response after RAG context".to_string(),
+            });
+        }
+
+        // Phase 3: Generate text with conversation optimizations
+        let generated_text = if request.conversation_mode {
+            self.generate_conversational_text(
+                &enhanced_prompt,
+                max_response_tokens as u32,
+                request.temperature,
+            )
+            .await?
+        } else {
+            self.generate_text_with_params(
+                &enhanced_prompt,
+                max_response_tokens as u32,
+                request.temperature,
+                0.9, // Default top_p
+            )
+            .await?
+        };
+
+        // Phase 4: Post-processing and quality validation
+        let context_utilization =
+            self.analyze_context_utilization(&generated_text, &request.rag_context);
+
+        // Phase 5: Compile metrics and response
+        let generation_time = start_time.elapsed();
+        let generation_metrics = GenerationMetrics {
+            generation_time_ms: generation_time.as_millis() as u64,
+            context_tokens,
+            response_tokens: self.estimate_token_count(&generated_text),
+            temperature_used: request.temperature,
+        };
+
+        Ok(EnhancedTextGenerationResponse {
+            text: generated_text,
+            tokens_used: generation_metrics.response_tokens,
+            generation_metrics,
+            context_utilization,
+        })
+    }
     #[cfg(feature = "real-ml")]
     async fn generate_onnx_text(
         &mut self,
@@ -356,6 +427,130 @@ impl TextGenerator {
             max_context_length: self.config.max_context_length,
             device_type: self.device_type.clone(),
         }
+    }
+    // Helper methods for RAG context processing
+
+    /// Assemble enhanced prompt with RAG context
+    fn assemble_rag_prompt(
+        &self,
+        request: &TextGenerationRequest,
+    ) -> Result<(String, u32), NLPError> {
+        let mut enhanced_prompt = String::new();
+
+        // Add RAG context if provided
+        if let Some(ref rag_context) = request.rag_context {
+            enhanced_prompt.push_str("# Context Information\n\n");
+            enhanced_prompt.push_str(&format!("Summary: {}\n\n", rag_context.context_summary));
+
+            if !rag_context.knowledge_sources.is_empty() {
+                enhanced_prompt.push_str("Sources:\n");
+                for (i, source) in rag_context.knowledge_sources.iter().enumerate() {
+                    enhanced_prompt.push_str(&format!("{}. {}\n", i + 1, source));
+                }
+                enhanced_prompt.push('\n');
+            }
+
+            enhanced_prompt.push_str("# Query\n\n");
+        }
+
+        // Add the main prompt
+        enhanced_prompt.push_str(&request.prompt);
+
+        // Add conversation formatting if in conversation mode
+        if request.conversation_mode {
+            enhanced_prompt.push_str(
+                "\n\nPlease respond naturally and reference the provided context where relevant.",
+            );
+        }
+
+        let total_tokens = self.estimate_token_count(&enhanced_prompt);
+        Ok((enhanced_prompt, total_tokens))
+    }
+
+    /// Generate text optimized for conversational responses
+    async fn generate_conversational_text(
+        &mut self,
+        prompt: &str,
+        max_tokens: u32,
+        temperature: f32,
+    ) -> Result<String, NLPError> {
+        // Use slightly higher temperature for more natural conversation
+        let conv_temperature = (temperature + 0.1).min(1.0);
+        let conv_top_p = 0.95; // Encourage diverse but coherent responses
+
+        self.generate_text_with_params(prompt, max_tokens, conv_temperature, conv_top_p)
+            .await
+    }
+
+    /// Analyze how well the generated text utilized the provided context
+    fn analyze_context_utilization(
+        &self,
+        generated_text: &str,
+        rag_context: &Option<RAGContext>,
+    ) -> ContextUtilization {
+        let mut context_referenced = false;
+        let mut sources_mentioned = Vec::new();
+        let mut relevance_score = 0.0;
+
+        if let Some(ref context) = rag_context {
+            // Check if response references context keywords
+            let context_keywords: Vec<&str> = context
+                .context_summary
+                .split_whitespace()
+                .filter(|word| word.len() > 4) // Only meaningful words
+                .collect();
+
+            let generated_lower = generated_text.to_lowercase();
+            let mut keyword_matches = 0;
+
+            for keyword in &context_keywords {
+                if generated_lower.contains(&keyword.to_lowercase()) {
+                    keyword_matches += 1;
+                    context_referenced = true;
+                }
+            }
+
+            // Check for source references
+            for (i, source) in context.knowledge_sources.iter().enumerate() {
+                let source_keywords: Vec<&str> = source
+                    .split_whitespace()
+                    .filter(|word| word.len() > 4)
+                    .take(3) // First few significant words
+                    .collect();
+
+                for keyword in source_keywords {
+                    if generated_lower.contains(&keyword.to_lowercase()) {
+                        sources_mentioned.push(format!("Source {}", i + 1));
+                        break;
+                    }
+                }
+            }
+
+            // Calculate relevance score
+            if !context_keywords.is_empty() {
+                relevance_score = (keyword_matches as f32) / (context_keywords.len() as f32);
+                relevance_score = relevance_score.min(1.0);
+
+                // Boost score if sources were mentioned
+                if !sources_mentioned.is_empty() {
+                    relevance_score = (relevance_score + 0.2).min(1.0);
+                }
+            }
+        }
+
+        ContextUtilization {
+            context_referenced,
+            sources_mentioned,
+            relevance_score,
+        }
+    }
+
+    /// Estimate token count for text (rough approximation)
+    fn estimate_token_count(&self, text: &str) -> u32 {
+        // Rough approximation: 1 token ≈ 0.75 words for English
+        // This is a simplified estimate - in production, use proper tokenizer
+        let word_count = text.split_whitespace().count();
+        ((word_count as f32) / 0.75) as u32
     }
 }
 
