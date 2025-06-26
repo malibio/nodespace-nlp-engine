@@ -338,7 +338,6 @@ impl NLPEngine for LocalNLPEngine {
             .await
             .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
     }
-
     /// Generate SurrealQL from natural language query
     async fn generate_surrealql(
         &self,
