@@ -807,6 +807,12 @@ dependencies = [
 
 [[package]]
 name = "futures"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a471a38ef8ed83cd6e40aa59c1ffe17db6855c18e3604d9c4ed8c08ebc28678"
+
+[[package]]
+name = "futures"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
@@ -845,6 +851,7 @@ dependencies = [
  "futures-core",
  "futures-task",
  "futures-util",
+ "num_cpus",
 ]
 
 [[package]]
@@ -882,6 +889,7 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
+ "futures 0.1.31",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -1014,7 +1022,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "629d8f3bbeda9d148036d6b0de0a3ab947abd08ce90626327fc3547a49d59d97"
 dependencies = [
  "dirs",
- "futures",
+ "futures 0.3.31",
  "http",
  "indicatif",
  "libc",
@@ -1735,8 +1743,10 @@ dependencies = [
  "lru",
  "nodespace-core-types",
  "regex",
+ "rouge",
  "serde",
  "serde_json",
+ "strsim",
  "tempfile",
  "thiserror 1.0.69",
  "tokenizers 0.19.1",
@@ -2399,6 +2409,18 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rouge"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10d55df4d3a4edd309f343e44851eedec35479ec26bd322d193c583cbcecc66f"
+dependencies = [
+ "async-trait",
+ "futures 0.3.31",
+ "once_cell",
+ "tokio",
 ]
 
 [[package]]
