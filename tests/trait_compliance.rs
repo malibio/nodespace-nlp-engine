@@ -3,7 +3,7 @@
 //! Tests that verify the NLPEngine trait implementation meets all interface requirements.
 //! This repository owns and exports the NLPEngine trait definition.
 
-use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
+use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine, RAGContext, TextGenerationRequest};
 
 /// Test that the LocalNLPEngine implements the NLPEngine trait correctly
 #[tokio::test]
@@ -326,6 +326,128 @@ async fn test_caching() {
         cache_stats_after_clear.embedding_cache_size, 0,
         "Cache should be empty after clearing"
     );
+}
+
+/// Test enhanced text generation with RAG context support
+#[tokio::test]
+async fn test_rag_context_aware_generation() {
+    let engine = LocalNLPEngine::new();
+
+    // Initialize the engine
+    let init_result = engine.initialize().await;
+    assert!(init_result.is_ok(), "Engine initialization should succeed");
+
+    // Create RAG context
+    let rag_context = RAGContext {
+        knowledge_sources: vec![
+            "Meeting with John scheduled for Friday".to_string(),
+            "Project deadline is next week".to_string(),
+            "Team needs to review design documents".to_string(),
+        ],
+        retrieval_confidence: 0.85,
+        context_summary: "Information about upcoming meeting and project deadline".to_string(),
+    };
+
+    // Test basic enhanced generation
+    let basic_request = TextGenerationRequest {
+        prompt: "What is scheduled for this week?".to_string(),
+        max_tokens: 100,
+        temperature: 0.7,
+        context_window: 4000,
+        conversation_mode: false,
+        rag_context: Some(rag_context.clone()),
+    };
+
+    let result = engine.generate_text_enhanced(basic_request).await;
+    assert!(result.is_ok(), "Enhanced text generation should succeed");
+
+    let response = result.unwrap();
+    assert!(
+        !response.text.is_empty(),
+        "Response text should not be empty"
+    );
+    assert!(response.tokens_used > 0, "Should report tokens used");
+    // Verify generation metrics are populated
+    assert!(
+        response.generation_metrics.context_tokens > 0,
+        "Should report context tokens used"
+    );
+    assert!(
+        response.generation_metrics.response_tokens > 0,
+        "Should report response tokens generated"
+    );
+
+    // Test conversation mode
+    let conversation_request = TextGenerationRequest {
+        prompt: "Can you help me prepare for the meeting?".to_string(),
+        max_tokens: 150,
+        temperature: 0.8,
+        context_window: 4000,
+        conversation_mode: true,
+        rag_context: Some(rag_context.clone()),
+    };
+
+    let conv_result = engine.generate_text_enhanced(conversation_request).await;
+    assert!(
+        conv_result.is_ok(),
+        "Conversation mode generation should succeed"
+    );
+
+    let conv_response = conv_result.unwrap();
+    assert!(
+        !conv_response.text.is_empty(),
+        "Conversation response should not be empty"
+    );
+
+    // Test without RAG context
+    let no_context_request = TextGenerationRequest {
+        prompt: "Generate a simple response".to_string(),
+        max_tokens: 50,
+        temperature: 0.5,
+        context_window: 2000,
+        conversation_mode: false,
+        rag_context: None,
+    };
+
+    let no_context_result = engine.generate_text_enhanced(no_context_request).await;
+    assert!(
+        no_context_result.is_ok(),
+        "Generation without RAG context should succeed"
+    );
+
+    let no_context_response = no_context_result.unwrap();
+    assert!(
+        !no_context_response.text.is_empty(),
+        "Response without context should not be empty"
+    );
+    assert_eq!(
+        no_context_response.context_utilization.context_referenced, false,
+        "Should not reference context when none provided"
+    );
+
+    // Test token limit validation
+    let limited_request = TextGenerationRequest {
+        prompt: "This is a test".to_string(),
+        max_tokens: 5000, // High request
+        temperature: 0.7,
+        context_window: 100, // Very small context window
+        conversation_mode: false,
+        rag_context: Some(rag_context),
+    };
+
+    let limited_result = engine.generate_text_enhanced(limited_request).await;
+    // Should either succeed with fewer tokens or return appropriate error
+    match limited_result {
+        Ok(response) => {
+            assert!(
+                response.tokens_used <= 100,
+                "Should respect context window limits"
+            );
+        }
+        Err(_) => {
+            // Error due to insufficient tokens is acceptable
+        }
+    }
 }
 
 /// Helper function to calculate cosine similarity

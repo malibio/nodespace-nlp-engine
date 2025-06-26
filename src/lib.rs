@@ -31,7 +31,7 @@ pub use models::{
 
 /// NLP Engine Service Interface
 ///
-/// Minimal interface for AI/ML operations using Mistral.rs and embedding generation.
+/// Interface for AI/ML operations with RAG context-aware generation support.
 /// NLP Engine Service Interface - owned and exported by this repository.
 #[async_trait]
 pub trait NLPEngine: Send + Sync {
@@ -41,8 +41,14 @@ pub trait NLPEngine: Send + Sync {
     /// Generate embeddings for multiple texts (batch operation)
     async fn batch_embeddings(&self, texts: &[String]) -> NodeSpaceResult<Vec<Vec<f32>>>;
 
-    /// Generate text using the local LLM (Mistral.rs)
+    /// Generate text using the local LLM (backward compatibility)
     async fn generate_text(&self, prompt: &str) -> NodeSpaceResult<String>;
+
+    /// Enhanced text generation with RAG context support
+    async fn generate_text_enhanced(
+        &self,
+        request: TextGenerationRequest,
+    ) -> NodeSpaceResult<EnhancedTextGenerationResponse>;
 
     /// Generate SurrealQL from natural language query
     async fn generate_surrealql(
@@ -53,6 +59,19 @@ pub trait NLPEngine: Send + Sync {
 
     /// Get embedding model dimensions
     fn embedding_dimensions(&self) -> usize;
+}
+
+/// Future-ready streaming interface (for future implementation)
+///
+/// This trait is prepared for streaming text generation but not yet implemented.
+/// Will be activated when streaming support is added to the underlying models.
+#[async_trait]
+pub trait StreamingNLPEngine: NLPEngine {
+    // Future streaming method - commented out until streaming infrastructure is ready
+    // async fn generate_text_stream(
+    //     &self,
+    //     request: TextGenerationRequest,
+    // ) -> NodeSpaceResult<Box<dyn Stream<Item = NodeSpaceResult<TextChunk>> + Send + Unpin>>;
 }
 
 /// Request/response types for service boundaries
@@ -71,6 +90,60 @@ pub struct GenerateTextRequest {
     pub prompt: String,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
+}
+
+/// Enhanced text generation request with RAG context support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextGenerationRequest {
+    pub prompt: String,                  // Complete prompt with RAG context
+    pub max_tokens: usize,               // Response length limit
+    pub temperature: f32,                // Response creativity
+    pub context_window: usize,           // Total context tokens
+    pub conversation_mode: bool,         // Optimize for dialogue
+    pub rag_context: Option<RAGContext>, // Knowledge context metadata
+}
+
+/// RAG context metadata for enhanced generation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RAGContext {
+    pub knowledge_sources: Vec<String>, // Source summaries
+    pub retrieval_confidence: f32,      // Overall relevance
+    pub context_summary: String,        // What context includes
+}
+
+/// Enhanced text generation response with metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnhancedTextGenerationResponse {
+    pub text: String,
+    pub tokens_used: u32,
+    pub generation_metrics: GenerationMetrics,
+    pub context_utilization: ContextUtilization,
+}
+
+/// Generation quality and performance metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationMetrics {
+    pub generation_time_ms: u64,
+    pub context_tokens: u32,
+    pub response_tokens: u32,
+    pub temperature_used: f32,
+}
+
+/// Analysis of how well the generated text used provided context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextUtilization {
+    pub context_referenced: bool,
+    pub sources_mentioned: Vec<String>,
+    pub relevance_score: f32,
+}
+
+// Future-ready streaming support types
+/// Streaming text generation chunk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextChunk {
+    pub content: String,
+    pub is_final: bool,
+    pub token_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
