@@ -223,6 +223,194 @@ pub mod device {
     }
 }
 
+/// Smart link detection and injection utilities
+pub mod links {
+    use crate::{SmartLink, LinkType, NodeMetadata};
+    use crate::error::NLPError;
+    use regex::Regex;
+    use std::collections::HashMap;
+
+    /// Response processor for smart link injection
+    pub struct ResponseProcessor {
+        link_patterns: HashMap<LinkType, Vec<Regex>>,
+    }
+
+    impl ResponseProcessor {
+        /// Create a new response processor with pre-compiled patterns
+        pub fn new() -> Self {
+            let mut link_patterns = HashMap::new();
+            
+            // Date patterns
+            link_patterns.insert(LinkType::DateReference, vec![
+                Regex::new(r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?\b").unwrap(),
+                Regex::new(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b").unwrap(),
+                Regex::new(r"\b(?:today|yesterday|tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b").unwrap(),
+            ]);
+            
+            // Document patterns
+            link_patterns.insert(LinkType::DocumentReference, vec![
+                Regex::new(r"\b(?:proposal|document|report|notes?|meeting|presentation)\b").unwrap(),
+                Regex::new(r"\b[A-Z][a-zA-Z0-9\s]{2,30}(?:proposal|report|document|notes?)\b").unwrap(),
+            ]);
+            
+            // Task patterns
+            link_patterns.insert(LinkType::TaskReference, vec![
+                Regex::new(r"\b(?:task|todo|action item|follow[- ]up)\b").unwrap(),
+                Regex::new(r"\b(?:complete|finish|do|handle)\s+[a-zA-Z0-9\s]{3,20}\b").unwrap(),
+            ]);
+            
+            // Entity patterns (general)
+            link_patterns.insert(LinkType::EntityReference, vec![
+                Regex::new(r"\b[A-Z][a-zA-Z]{2,}\s+[A-Z][a-zA-Z]{2,}\b").unwrap(), // Person names
+                Regex::new(r"\b[A-Z][a-zA-Z0-9\s&]{3,30}(?:Inc|LLC|Corp|Company|Ltd)\b").unwrap(), // Company names
+            ]);
+            
+            Self { link_patterns }
+        }
+
+        /// Inject smart links into AI response content
+        pub fn inject_smart_links(&self, content: &str, available_nodes: &[NodeMetadata]) -> Result<String, NLPError> {
+            let mut enhanced_content = content.to_string();
+            let detected_links = self.detect_potential_links(&enhanced_content, available_nodes)?;
+            
+            // Sort by confidence (highest first) to prioritize best matches
+            let mut sorted_links = detected_links;
+            sorted_links.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+            
+            // Apply links in reverse order to maintain string positions
+            for link in sorted_links.iter().rev() {
+                if link.confidence > 0.6 { // Only apply high-confidence links
+                    let markdown_link = format!("[{}](nodespace://{})", link.text, link.node_id);
+                    enhanced_content = enhanced_content.replace(&link.text, &markdown_link);
+                }
+            }
+            
+            Ok(enhanced_content)
+        }
+
+        /// Detect potential links in text based on available node metadata
+        pub fn detect_potential_links(&self, content: &str, available_nodes: &[NodeMetadata]) -> Result<Vec<SmartLink>, NLPError> {
+            let mut potential_links = Vec::new();
+            
+            for node in available_nodes {
+                // Check for exact title matches (highest confidence)
+                if content.contains(&node.title) {
+                    potential_links.push(SmartLink {
+                        text: node.title.clone(),
+                        node_id: node.id.clone(),
+                        link_type: self.classify_link_type(&node.node_type),
+                        confidence: 0.95,
+                    });
+                }
+                
+                // Check for partial title matches
+                let title_words: Vec<&str> = node.title.split_whitespace().collect();
+                if title_words.len() > 1 {
+                    for window in title_words.windows(2) {
+                        let partial_title = window.join(" ");
+                        if content.contains(&partial_title) && partial_title.len() > 4 {
+                            potential_links.push(SmartLink {
+                                text: partial_title,
+                                node_id: node.id.clone(),
+                                link_type: self.classify_link_type(&node.node_type),
+                                confidence: 0.75,
+                            });
+                        }
+                    }
+                }
+                
+                // Check for pattern-based matches in snippet
+                if let Some(pattern_match) = self.find_pattern_matches(content, &node.snippet, &node.node_type) {
+                    potential_links.push(SmartLink {
+                        text: pattern_match,
+                        node_id: node.id.clone(),
+                        link_type: self.classify_link_type(&node.node_type),
+                        confidence: 0.65,
+                    });
+                }
+            }
+            
+            // Remove duplicates and overlapping matches
+            let deduplicated = self.deduplicate_links(potential_links)?;
+            
+            Ok(deduplicated)
+        }
+
+        /// Classify node type into LinkType
+        fn classify_link_type(&self, node_type: &str) -> LinkType {
+            match node_type.to_lowercase().as_str() {
+                "customer" | "person" | "contact" | "company" => LinkType::EntityReference,
+                "meeting" | "date" | "event" | "calendar" => LinkType::DateReference,
+                "document" | "note" | "proposal" | "report" => LinkType::DocumentReference,
+                "task" | "todo" | "action" | "item" => LinkType::TaskReference,
+                _ => LinkType::EntityReference, // Default
+            }
+        }
+
+        /// Find pattern-based matches between content and node data
+        fn find_pattern_matches(&self, content: &str, snippet: &str, node_type: &str) -> Option<String> {
+            let link_type = self.classify_link_type(node_type);
+            
+            if let Some(patterns) = self.link_patterns.get(&link_type) {
+                for pattern in patterns {
+                    if let Some(mat) = pattern.find(content) {
+                        // Check if this match might relate to the node's snippet content
+                        let matched_text = mat.as_str();
+                        if self.content_similarity(matched_text, snippet) > 0.3 {
+                            return Some(matched_text.to_string());
+                        }
+                    }
+                }
+            }
+            
+            None
+        }
+
+        /// Calculate content similarity between two strings (simple keyword overlap)
+        fn content_similarity(&self, text1: &str, text2: &str) -> f32 {
+            let words1: std::collections::HashSet<&str> = text1.split_whitespace().collect();
+            let words2: std::collections::HashSet<&str> = text2.split_whitespace().collect();
+            
+            let intersection = words1.intersection(&words2).count();
+            let union = words1.union(&words2).count();
+            
+            if union == 0 {
+                0.0
+            } else {
+                intersection as f32 / union as f32
+            }
+        }
+
+        /// Remove duplicate and overlapping smart links
+        fn deduplicate_links(&self, mut links: Vec<SmartLink>) -> Result<Vec<SmartLink>, NLPError> {
+            // Sort by text length (longer matches preferred)
+            links.sort_by(|a, b| b.text.len().cmp(&a.text.len()));
+            
+            let mut deduplicated = Vec::new();
+            let mut used_text_ranges = Vec::new();
+            
+            for link in links {
+                let overlaps = used_text_ranges.iter().any(|used: &String| {
+                    used.contains(&link.text) || link.text.contains(used)
+                });
+                
+                if !overlaps {
+                    used_text_ranges.push(link.text.clone());
+                    deduplicated.push(link);
+                }
+            }
+            
+            Ok(deduplicated)
+        }
+    }
+
+    impl Default for ResponseProcessor {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+}
+
 /// Performance monitoring utilities
 pub mod metrics {
     use std::time::{Duration, Instant};

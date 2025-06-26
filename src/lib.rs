@@ -29,6 +29,9 @@ pub use models::{
     NLPConfig, PerformanceConfig, TextGenerationModelConfig,
 };
 
+// Re-export smart link utilities for intelligent response processing
+pub use utils::links::ResponseProcessor;
+
 /// NLP Engine Service Interface
 ///
 /// Interface for AI/ML operations with RAG context-aware generation support.
@@ -91,7 +94,35 @@ pub struct GenerateTextRequest {
     pub temperature: Option<f32>,
 }
 
-/// Enhanced text generation request with RAG context support
+/// Node metadata for smart link generation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeMetadata {
+    pub id: nodespace_core_types::NodeId,
+    pub title: String,
+    pub node_type: String,              // "customer", "date", "task", etc.
+    pub created_date: String,
+    pub snippet: String,                // Brief content preview
+}
+
+/// Smart link types for different kinds of references
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum LinkType {
+    EntityReference,    // Customer, project, person
+    DateReference,      // Specific dates or meetings
+    DocumentReference,  // Notes, proposals, documents
+    TaskReference,      // Action items, todos
+}
+
+/// Smart link structure for generated links in AI responses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartLink {
+    pub text: String,                          // Display text
+    pub node_id: nodespace_core_types::NodeId, // Target node
+    pub link_type: LinkType,                   // Reference, Date, Entity
+    pub confidence: f32,                       // Link relevance score
+}
+
+/// Enhanced text generation request with RAG context and smart link support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextGenerationRequest {
     pub prompt: String,                  // Complete prompt with RAG context
@@ -100,14 +131,17 @@ pub struct TextGenerationRequest {
     pub context_window: usize,           // Total context tokens
     pub conversation_mode: bool,         // Optimize for dialogue
     pub rag_context: Option<RAGContext>, // Knowledge context metadata
+    pub enable_link_generation: bool,    // NEW: Enable smart link generation
+    pub node_metadata: Vec<NodeMetadata>, // NEW: Available nodes for linking
 }
 
-/// RAG context metadata for enhanced generation
+/// RAG context metadata for enhanced generation with smart linking capability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RAGContext {
     pub knowledge_sources: Vec<String>, // Source summaries
     pub retrieval_confidence: f32,      // Overall relevance
     pub context_summary: String,        // What context includes
+    pub suggested_links: Vec<SmartLink>, // NEW: Generated smart links
 }
 
 /// Enhanced text generation response with metadata
