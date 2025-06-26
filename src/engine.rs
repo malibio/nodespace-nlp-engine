@@ -43,6 +43,11 @@ impl LocalNLPEngine {
         }
     }
 
+    /// Set the model path for text generation (convenience method for clients)
+    pub fn set_model_path<P: Into<std::path::PathBuf>>(&mut self, model_path: P) {
+        self.config.models.text_generation.model_path = Some(model_path.into());
+    }
+
     /// Initialize all components of the NLP engine
     pub async fn initialize(&self) -> Result<(), NLPError> {
         let _timer = Timer::new("nlp_engine_initialization");
@@ -309,6 +314,27 @@ impl NLPEngine for LocalNLPEngine {
 
         generator
             .generate_text(prompt)
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+    }
+
+    /// Enhanced text generation with RAG context support
+    async fn generate_text_enhanced(
+        &self,
+        request: crate::TextGenerationRequest,
+    ) -> NodeSpaceResult<crate::EnhancedTextGenerationResponse> {
+        let generator = self
+            .get_text_generator()
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+
+        let mut generator = generator.write().await;
+        let generator = generator.as_mut().ok_or_else(|| {
+            NodeSpaceError::ProcessingError("Text generator not initialized".to_string())
+        })?;
+
+        generator
+            .generate_text_enhanced(request)
             .await
             .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
     }
