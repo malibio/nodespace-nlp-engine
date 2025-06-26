@@ -52,6 +52,9 @@ pub enum NLPError {
 
     #[error("Processing error: {message}")]
     ProcessingError { message: String },
+
+    #[error("Evaluation error: {0}")]
+    EvaluationError(String),
 }
 
 impl From<NLPError> for nodespace_core_types::NodeSpaceError {
