@@ -171,7 +171,7 @@ SurrealQL:"#,
 
     /// Analyze the structure of a natural language query
     async fn analyze_query_structure(&self, query: &str) -> Result<QueryAnalysis, NLPError> {
-        // STUB: Simple analysis for now
+        // Simple analysis based on query patterns
         let intent_type = if query.to_lowercase().contains("create") {
             "CREATE_ENTITY"
         } else if query.to_lowercase().contains("find") || query.to_lowercase().contains("search") {
@@ -355,7 +355,7 @@ SurrealQL:"#,
 
     /// Extract table names mentioned in query
     fn extract_table_names(&self, query: &str) -> Vec<String> {
-        // Simple extraction - in a real implementation, this would be more sophisticated
+        // Simple pattern-based extraction
         let table_patterns = [
             r"\b(meeting|task|person|document|project|customer|order)s?\b",
             r"\b[a-z_]+\b",

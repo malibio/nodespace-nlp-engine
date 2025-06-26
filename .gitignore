@@ -63,3 +63,6 @@ research_*.rs
 *_investigation.rs
 session*.rs
 *_test.rs.bak
+
+# FastEmbed model cache (too large for git)
+.fastembed_cache/
