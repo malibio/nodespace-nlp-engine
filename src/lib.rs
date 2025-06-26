@@ -14,6 +14,8 @@ pub use nodespace_core_types;
 pub mod embedding;
 pub mod engine;
 pub mod error;
+#[cfg(feature = "evaluation")]
+pub mod evaluation;
 pub mod models;
 pub mod surrealql;
 pub mod text_generation;
@@ -22,6 +24,13 @@ pub mod utils;
 // Re-export main types for consumers
 pub use engine::LocalNLPEngine;
 pub use error::NLPError;
+
+// Re-export evaluation types when feature is enabled
+#[cfg(feature = "evaluation")]
+pub use evaluation::{
+    BLEUConfig, BLEUScores, EvaluationFramework, EvaluationReport, RAGEvaluationResult,
+    ROUGEConfig, ROUGEScores, SemanticSearchEvaluation, SimilarityScores,
+};
 
 // Re-export configuration types for external configuration
 pub use models::{
