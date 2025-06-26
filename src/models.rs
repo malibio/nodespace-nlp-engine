@@ -125,8 +125,8 @@ impl Default for NLPConfig {
                     normalize: true,
                 },
                 text_generation: TextGenerationModelConfig {
-                    model_name: "local/gemma-3-1b-it-onnx".to_string(), // Client should provide actual model
-                    model_path: None, // Client should provide the actual model path
+                    model_name: "google/gemma-3-1b-instruct".to_string(),
+                    model_path: Some("/models/gemma-3-1b-it-onnx/".into()),
                     max_context_length: 8192, // Gemma 3 1B context length
                     default_temperature: 0.7,
                     default_max_tokens: 1024,
@@ -154,12 +154,45 @@ impl Default for NLPConfig {
     }
 }
 
+/// Available model types for discovery and validation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum AvailableModels {
+    TextGeneration(TextGenerationModel),
+    Embedding(EmbeddingModel),
+}
+
+/// Available text generation models
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum TextGenerationModel {
+    Gemma3_1bOnnx,
+    // Future models can be added here
+}
+
+/// Available embedding models  
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum EmbeddingModel {
+    BgeSmallEn,
+    // Future models can be added here
+}
+
 /// Model metadata and state information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInfo {
     pub name: String,
+    pub model_type: AvailableModels,
+    pub path: String,
     pub loaded: bool,
     pub device: DeviceType,
     pub memory_usage_mb: Option<f32>,
     pub last_used: Option<chrono::DateTime<chrono::Utc>>,
+    pub capabilities: ModelCapabilities,
+}
+
+/// Model capabilities and specifications
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelCapabilities {
+    pub max_context_length: usize,
+    pub dimensions: Option<usize>, // For embedding models
+    pub supports_streaming: bool,
+    pub memory_requirements_mb: usize,
 }

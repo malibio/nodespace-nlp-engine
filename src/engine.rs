@@ -356,6 +356,75 @@ impl NLPEngine for LocalNLPEngine {
     fn embedding_dimensions(&self) -> usize {
         self.config.models.embedding.dimensions
     }
+
+    /// List all available models for discovery
+    fn list_available_models() -> Vec<crate::AvailableModels> {
+        vec![
+            crate::AvailableModels::TextGeneration(crate::TextGenerationModel::Gemma3_1bOnnx),
+            crate::AvailableModels::Embedding(crate::EmbeddingModel::BgeSmallEn),
+        ]
+    }
+
+    /// Get detailed information about a specific model
+    fn get_model_info(
+        model: &crate::AvailableModels,
+    ) -> Result<crate::ModelInfo, NodeSpaceResult<()>> {
+        use crate::{
+            AvailableModels, DeviceType, EmbeddingModel, ModelCapabilities, ModelInfo,
+            TextGenerationModel,
+        };
+
+        let model_info = match model {
+            AvailableModels::TextGeneration(TextGenerationModel::Gemma3_1bOnnx) => ModelInfo {
+                name: "Gemma 3 1B Instruct (ONNX)".to_string(),
+                model_type: model.clone(),
+                path: "/models/gemma-3-1b-it-onnx/".to_string(),
+                loaded: false,
+                device: DeviceType::Auto,
+                memory_usage_mb: None,
+                last_used: None,
+                capabilities: ModelCapabilities {
+                    max_context_length: 8192,
+                    dimensions: None,
+                    supports_streaming: false,
+                    memory_requirements_mb: 2048,
+                },
+            },
+            AvailableModels::Embedding(EmbeddingModel::BgeSmallEn) => ModelInfo {
+                name: "BAAI BGE Small English v1.5".to_string(),
+                model_type: model.clone(),
+                path: "BAAI/bge-small-en-v1.5".to_string(),
+                loaded: false,
+                device: DeviceType::Auto,
+                memory_usage_mb: None,
+                last_used: None,
+                capabilities: ModelCapabilities {
+                    max_context_length: 512,
+                    dimensions: Some(384),
+                    supports_streaming: false,
+                    memory_requirements_mb: 512,
+                },
+            },
+        };
+
+        Ok(model_info)
+    }
+
+    /// Validate if a model is available and properly configured
+    fn validate_model_availability(model: &crate::AvailableModels) -> bool {
+        use crate::{AvailableModels, EmbeddingModel, TextGenerationModel};
+
+        match model {
+            AvailableModels::TextGeneration(TextGenerationModel::Gemma3_1bOnnx) => {
+                // Check if the model path exists
+                std::path::Path::new("/models/gemma-3-1b-it-onnx/").exists()
+            }
+            AvailableModels::Embedding(EmbeddingModel::BgeSmallEn) => {
+                // BGE model will be downloaded automatically by fastembed, so always available
+                true
+            }
+        }
+    }
 }
 
 impl Default for LocalNLPEngine {

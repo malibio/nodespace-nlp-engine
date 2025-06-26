@@ -25,8 +25,9 @@ pub use error::NLPError;
 
 // Re-export configuration types for external configuration
 pub use models::{
-    CacheConfig, DeviceConfig, DeviceType, EmbeddingModelConfig, ModelConfigs, ModelInfo,
-    NLPConfig, PerformanceConfig, TextGenerationModelConfig,
+    AvailableModels, CacheConfig, DeviceConfig, DeviceType, EmbeddingModel, EmbeddingModelConfig,
+    ModelCapabilities, ModelConfigs, ModelInfo, NLPConfig, PerformanceConfig, TextGenerationModel,
+    TextGenerationModelConfig,
 };
 
 // Re-export smart link utilities for intelligent response processing
@@ -61,6 +62,15 @@ pub trait NLPEngine: Send + Sync {
 
     /// Get embedding model dimensions
     fn embedding_dimensions(&self) -> usize;
+
+    /// List all available models for discovery
+    fn list_available_models() -> Vec<AvailableModels>;
+
+    /// Get detailed information about a specific model
+    fn get_model_info(model: &AvailableModels) -> Result<ModelInfo, NodeSpaceResult<()>>;
+
+    /// Validate if a model is available and properly configured
+    fn validate_model_availability(model: &AvailableModels) -> bool;
 }
 
 /// Future-ready streaming interface (for future implementation)
@@ -99,18 +109,18 @@ pub struct GenerateTextRequest {
 pub struct NodeMetadata {
     pub id: nodespace_core_types::NodeId,
     pub title: String,
-    pub node_type: String,              // "customer", "date", "task", etc.
+    pub node_type: String, // "customer", "date", "task", etc.
     pub created_date: String,
-    pub snippet: String,                // Brief content preview
+    pub snippet: String, // Brief content preview
 }
 
 /// Smart link types for different kinds of references
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum LinkType {
-    EntityReference,    // Customer, project, person
-    DateReference,      // Specific dates or meetings
-    DocumentReference,  // Notes, proposals, documents
-    TaskReference,      // Action items, todos
+    EntityReference,   // Customer, project, person
+    DateReference,     // Specific dates or meetings
+    DocumentReference, // Notes, proposals, documents
+    TaskReference,     // Action items, todos
 }
 
 /// Smart link structure for generated links in AI responses
@@ -125,22 +135,22 @@ pub struct SmartLink {
 /// Enhanced text generation request with RAG context and smart link support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextGenerationRequest {
-    pub prompt: String,                  // Complete prompt with RAG context
-    pub max_tokens: usize,               // Response length limit
-    pub temperature: f32,                // Response creativity
-    pub context_window: usize,           // Total context tokens
-    pub conversation_mode: bool,         // Optimize for dialogue
-    pub rag_context: Option<RAGContext>, // Knowledge context metadata
-    pub enable_link_generation: bool,    // NEW: Enable smart link generation
+    pub prompt: String,                   // Complete prompt with RAG context
+    pub max_tokens: usize,                // Response length limit
+    pub temperature: f32,                 // Response creativity
+    pub context_window: usize,            // Total context tokens
+    pub conversation_mode: bool,          // Optimize for dialogue
+    pub rag_context: Option<RAGContext>,  // Knowledge context metadata
+    pub enable_link_generation: bool,     // NEW: Enable smart link generation
     pub node_metadata: Vec<NodeMetadata>, // NEW: Available nodes for linking
 }
 
 /// RAG context metadata for enhanced generation with smart linking capability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RAGContext {
-    pub knowledge_sources: Vec<String>, // Source summaries
-    pub retrieval_confidence: f32,      // Overall relevance
-    pub context_summary: String,        // What context includes
+    pub knowledge_sources: Vec<String>,  // Source summaries
+    pub retrieval_confidence: f32,       // Overall relevance
+    pub context_summary: String,         // What context includes
     pub suggested_links: Vec<SmartLink>, // NEW: Generated smart links
 }
 
