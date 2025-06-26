@@ -49,7 +49,6 @@ pub trait NLPEngine: Send + Sync {
         &self,
         request: TextGenerationRequest,
     ) -> NodeSpaceResult<EnhancedTextGenerationResponse>;
-
     /// Generate SurrealQL from natural language query
     async fn generate_surrealql(
         &self,
@@ -145,7 +144,6 @@ pub struct TextChunk {
     pub is_final: bool,
     pub token_count: usize,
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerateSurrealQLRequest {
     pub natural_query: String,

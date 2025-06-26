@@ -236,7 +236,6 @@ impl TextGenerator {
             context_utilization,
         })
     }
-
     #[cfg(feature = "real-ml")]
     async fn generate_onnx_text(
         &mut self,
@@ -429,7 +428,6 @@ impl TextGenerator {
             device_type: self.device_type.clone(),
         }
     }
-
     // Helper methods for RAG context processing
 
     /// Assemble enhanced prompt with RAG context
