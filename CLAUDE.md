@@ -63,8 +63,9 @@ hf-hub = "0.3"
 
 **Modular Design**:
 - **`EmbeddingGenerator`** (`src/embedding.rs`): Handles text-to-vector conversion with caching
-- **`TextGenerator`** (`src/text_generation.rs`): LLM text generation using Mistral.rs
+- **`TextGenerator`** (`src/text_generation.rs`): Enhanced LLM text generation with RAG context support
 - **`SurrealQLGenerator`** (`src/surrealql.rs`): Natural language to SurrealQL conversion
+- **Token Utilities** (`src/utils.rs`): RAG token budget management and content allocation
 - **Configuration** (`src/models.rs`): Device detection, model configs, performance tuning
 
 ### Key Architectural Patterns
@@ -93,6 +94,44 @@ The engine is designed for SurrealDB-native operations:
 - Embeddings generated in SurrealDB `vector<float, DIM>` format
 - Natural language to SurrealQL conversion with safety checks
 - Schema-aware query generation
+
+## RAG Integration Architecture
+
+The NLP engine provides comprehensive RAG (Retrieval-Augmented Generation) support for `nodespace-core-logic`:
+
+### Enhanced Text Generation
+- **`generate_text_enhanced`**: RAG-aware text generation with context assembly
+- **Token Budget Management**: Automatic token allocation for context + response
+- **Conversation Mode**: Optimized parameters for conversational AI
+- **Context Utilization Analysis**: Tracks how well responses use provided context
+
+### Token Management Utilities
+```rust
+use nodespace_nlp_engine::{TokenBudget, estimate_token_count, allocate_budget_to_segments};
+
+// Smart content allocation within token limits
+let budget = TokenBudget::new(8192); // Model context window
+let allocated = allocate_budget_to_segments(knowledge_segments, budget.available_for_context())?;
+```
+
+### RAG Request/Response Pattern
+```rust
+let request = TextGenerationRequest {
+    prompt: user_query,
+    rag_context: Some(RAGContext {
+        knowledge_sources: retrieved_content,
+        context_summary: "What knowledge includes",
+        retrieval_confidence: 0.88,
+    }),
+    conversation_mode: true,
+    // ... other params
+};
+
+let response = nlp_engine.generate_text_enhanced(request).await?;
+// Returns enhanced response with metrics and context analysis
+```
+
+**Example**: See `examples/rag_integration.rs` for complete RAG workflow demonstration.
 
 ## Testing Strategy
 

@@ -29,6 +29,9 @@ pub use models::{
     NLPConfig, PerformanceConfig, TextGenerationModelConfig,
 };
 
+// Re-export utility types for RAG integration
+pub use utils::tokens::{TokenBudget, estimate_token_count, truncate_to_token_budget, allocate_budget_to_segments};
+
 /// NLP Engine Service Interface
 ///
 /// Interface for AI/ML operations with RAG context-aware generation support.

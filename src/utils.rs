@@ -223,6 +223,142 @@ pub mod device {
     }
 }
 
+/// Token counting and budget management utilities for RAG
+pub mod tokens {
+    use crate::error::NLPError;
+
+    /// Token budget management for RAG context assembly
+    #[derive(Debug, Clone)]
+    pub struct TokenBudget {
+        pub total_available: usize,        // Model's context window
+        pub reserved_for_response: usize,  // Tokens reserved for AI response
+        pub system_prompt: usize,          // Tokens used by system instructions
+        pub conversation_history: usize,   // Tokens for chat history
+        pub knowledge_context: usize,      // Tokens for retrieved information
+    }
+
+    impl TokenBudget {
+        /// Create a new token budget with default allocations
+        pub fn new(total_context_window: usize) -> Self {
+            let reserved_for_response = (total_context_window as f32 * 0.25) as usize; // 25% for response
+            let system_prompt = 200; // Typical system prompt size
+            
+            Self {
+                total_available: total_context_window,
+                reserved_for_response,
+                system_prompt,
+                conversation_history: 0,
+                knowledge_context: 0,
+            }
+        }
+
+        /// Calculate remaining tokens available for context
+        pub fn available_for_context(&self) -> usize {
+            self.total_available
+                .saturating_sub(self.reserved_for_response)
+                .saturating_sub(self.system_prompt)
+        }
+
+        /// Update conversation history token usage
+        pub fn set_conversation_tokens(&mut self, tokens: usize) {
+            self.conversation_history = tokens;
+        }
+
+        /// Update knowledge context token usage
+        pub fn set_knowledge_tokens(&mut self, tokens: usize) {
+            self.knowledge_context = tokens;
+        }
+
+        /// Check if the current allocation is within budget
+        pub fn is_within_budget(&self) -> bool {
+            let used = self.reserved_for_response + self.system_prompt + 
+                      self.conversation_history + self.knowledge_context;
+            used <= self.total_available
+        }
+
+        /// Get the excess tokens if over budget
+        pub fn excess_tokens(&self) -> usize {
+            let used = self.reserved_for_response + self.system_prompt + 
+                      self.conversation_history + self.knowledge_context;
+            used.saturating_sub(self.total_available)
+        }
+    }
+
+    /// Estimate token count for text (rough approximation)
+    /// Note: This is a simple estimation. For precise counting, use the actual tokenizer.
+    pub fn estimate_token_count(text: &str) -> usize {
+        // Rough estimation: ~4 characters per token for English text
+        let char_count = text.chars().count();
+        let word_count = text.split_whitespace().count();
+        
+        // Use the maximum of char/4 and word*1.3 as a conservative estimate
+        let char_estimate = (char_count as f32 / 4.0).ceil() as usize;
+        let word_estimate = (word_count as f32 * 1.3).ceil() as usize;
+        
+        char_estimate.max(word_estimate)
+    }
+
+    /// Truncate text to fit within token budget
+    pub fn truncate_to_token_budget(text: &str, max_tokens: usize) -> String {
+        let estimated_tokens = estimate_token_count(text);
+        
+        if estimated_tokens <= max_tokens {
+            return text.to_string();
+        }
+
+        // Calculate approximate character limit
+        let target_chars = (max_tokens * 4).saturating_sub(10); // Small buffer
+        
+        if text.len() <= target_chars {
+            return text.to_string();
+        }
+
+        // Find the last complete word within the character limit
+        let truncated = &text[..target_chars];
+        if let Some(last_space) = truncated.rfind(' ') {
+            truncated[..last_space].to_string()
+        } else {
+            truncated.to_string()
+        }
+    }
+
+    /// Prioritize and truncate multiple text segments to fit budget
+    pub fn allocate_budget_to_segments(
+        segments: Vec<(String, f32)>, // (text, priority_score)
+        total_budget: usize,
+    ) -> Result<Vec<String>, NLPError> {
+        if segments.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Sort by priority (highest first)
+        let mut prioritized: Vec<_> = segments.into_iter().enumerate().collect();
+        prioritized.sort_by(|a, b| b.1.1.partial_cmp(&a.1.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut result = Vec::new();
+        let mut remaining_budget = total_budget;
+
+        for (_, (text, _priority)) in prioritized {
+            let estimated_tokens = estimate_token_count(&text);
+            
+            if estimated_tokens <= remaining_budget {
+                // Include the full text
+                remaining_budget = remaining_budget.saturating_sub(estimated_tokens);
+                result.push(text);
+            } else if remaining_budget > 10 {
+                // Truncate to fit remaining budget
+                let truncated = truncate_to_token_budget(&text, remaining_budget);
+                result.push(truncated);
+                break; // No more budget available
+            } else {
+                break; // Not enough budget for any more content
+            }
+        }
+
+        Ok(result)
+    }
+}
+
 /// Performance monitoring utilities
 pub mod metrics {
     use std::time::{Duration, Instant};
