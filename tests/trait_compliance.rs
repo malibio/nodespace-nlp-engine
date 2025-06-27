@@ -463,7 +463,7 @@ async fn test_rag_context_aware_generation() {
 #[tokio::test]
 async fn test_smart_link_generation() {
     use nodespace_nlp_engine::{
-        NodeMetadata, LinkType, SmartLink, ResponseProcessor,
+        NodeMetadata, ResponseProcessor,
         nodespace_core_types::NodeId,
     };
 
