@@ -126,7 +126,7 @@ impl Default for NLPConfig {
                 },
                 text_generation: TextGenerationModelConfig {
                     model_name: "local/gemma-3-1b-it-onnx".to_string(),
-                    model_path: Some(PathBuf::from("../models/gemma-3-1b-it-onnx/model.onnx")), // Shared NodeSpace models directory  
+                    model_path: Some(PathBuf::from("../models/gemma-3-1b-it-onnx/model.onnx")), // Shared NodeSpace models directory
                     max_context_length: 8192, // Gemma 3 1B context length
                     default_temperature: 0.7,
                     default_max_tokens: 1024,

@@ -16,6 +16,8 @@ pub mod engine;
 pub mod error;
 #[cfg(feature = "evaluation")]
 pub mod evaluation;
+#[cfg(feature = "multimodal")]
+pub mod image_processing;
 pub mod models;
 pub mod surrealql;
 pub mod text_generation;
@@ -70,6 +72,21 @@ pub trait NLPEngine: Send + Sync {
 
     /// Get embedding model dimensions
     fn embedding_dimensions(&self) -> usize;
+
+    /// Generate vector embedding for image content (multimodal)
+    #[cfg(feature = "multimodal")]
+    async fn generate_image_embedding(&self, image_data: &[u8]) -> NodeSpaceResult<Vec<f32>>;
+
+    /// Extract comprehensive metadata from image
+    #[cfg(feature = "multimodal")]
+    async fn extract_image_metadata(&self, image_data: &[u8]) -> NodeSpaceResult<ImageMetadata>;
+
+    /// Generate multimodal response with text and image understanding
+    #[cfg(feature = "multimodal")]
+    async fn generate_multimodal_response(
+        &self,
+        request: MultimodalRequest,
+    ) -> NodeSpaceResult<MultimodalResponse>;
 }
 
 /// Future-ready streaming interface (for future implementation)
@@ -108,18 +125,18 @@ pub struct GenerateTextRequest {
 pub struct NodeMetadata {
     pub id: nodespace_core_types::NodeId,
     pub title: String,
-    pub node_type: String,              // "customer", "date", "task", etc.
+    pub node_type: String, // "customer", "date", "task", etc.
     pub created_date: String,
-    pub snippet: String,                // Brief content preview
+    pub snippet: String, // Brief content preview
 }
 
 /// Smart link types for different kinds of references
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum LinkType {
-    EntityReference,    // Customer, project, person
-    DateReference,      // Specific dates or meetings
-    DocumentReference,  // Notes, proposals, documents
-    TaskReference,      // Action items, todos
+    EntityReference,   // Customer, project, person
+    DateReference,     // Specific dates or meetings
+    DocumentReference, // Notes, proposals, documents
+    TaskReference,     // Action items, todos
 }
 
 /// Smart link structure for generated links in AI responses
@@ -134,22 +151,22 @@ pub struct SmartLink {
 /// Enhanced text generation request with RAG context and smart link support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextGenerationRequest {
-    pub prompt: String,                  // Complete prompt with RAG context
-    pub max_tokens: usize,               // Response length limit
-    pub temperature: f32,                // Response creativity
-    pub context_window: usize,           // Total context tokens
-    pub conversation_mode: bool,         // Optimize for dialogue
-    pub rag_context: Option<RAGContext>, // Knowledge context metadata
-    pub enable_link_generation: bool,    // NEW: Enable smart link generation
+    pub prompt: String,                   // Complete prompt with RAG context
+    pub max_tokens: usize,                // Response length limit
+    pub temperature: f32,                 // Response creativity
+    pub context_window: usize,            // Total context tokens
+    pub conversation_mode: bool,          // Optimize for dialogue
+    pub rag_context: Option<RAGContext>,  // Knowledge context metadata
+    pub enable_link_generation: bool,     // NEW: Enable smart link generation
     pub node_metadata: Vec<NodeMetadata>, // NEW: Available nodes for linking
 }
 
 /// RAG context metadata for enhanced generation with smart linking capability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RAGContext {
-    pub knowledge_sources: Vec<String>, // Source summaries
-    pub retrieval_confidence: f32,      // Overall relevance
-    pub context_summary: String,        // What context includes
+    pub knowledge_sources: Vec<String>,  // Source summaries
+    pub retrieval_confidence: f32,       // Overall relevance
+    pub context_summary: String,         // What context includes
     pub suggested_links: Vec<SmartLink>, // NEW: Generated smart links
 }
 
@@ -204,4 +221,120 @@ pub struct EmbeddingResponse {
 pub struct TextGenerationResponse {
     pub text: String,
     pub tokens_used: u32,
+}
+
+/// Image metadata extracted from EXIF and analysis
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageMetadata {
+    /// Image dimensions (width, height)
+    pub dimensions: (u32, u32),
+    /// File format (JPEG, PNG, etc.)
+    pub format: String,
+    /// File size in bytes
+    pub file_size: usize,
+    /// EXIF timestamp if available
+    pub timestamp: Option<chrono::DateTime<chrono::Utc>>,
+    /// GPS coordinates if available (latitude, longitude)
+    pub gps_coordinates: Option<(f64, f64)>,
+    /// Camera information from EXIF
+    pub camera_info: Option<CameraInfo>,
+    /// Color space information
+    pub color_space: Option<String>,
+    /// Image orientation
+    pub orientation: Option<u8>,
+    /// Processing performance metrics
+    pub processing_time_ms: u64,
+}
+
+/// Camera information extracted from EXIF data
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CameraInfo {
+    /// Camera make (e.g., "Canon", "Apple")
+    pub make: Option<String>,
+    /// Camera model (e.g., "iPhone 15 Pro", "EOS R5")
+    pub model: Option<String>,
+    /// Lens information
+    pub lens_model: Option<String>,
+    /// Focal length in mm
+    pub focal_length: Option<f32>,
+    /// Aperture f-number
+    pub aperture: Option<f32>,
+    /// ISO sensitivity
+    pub iso: Option<u32>,
+    /// Exposure time in seconds
+    pub exposure_time: Option<f32>,
+    /// Flash information
+    pub flash: Option<bool>,
+}
+
+/// Multimodal request combining text and images
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultimodalRequest {
+    /// Text query or prompt
+    pub text_query: String,
+    /// Image data for analysis
+    pub images: Vec<ImageInput>,
+    /// Context from previous conversation
+    pub context_nodes: Vec<nodespace_core_types::NodeId>,
+    /// Enable smart link generation in response
+    pub enable_smart_links: bool,
+    /// Maximum tokens for response
+    pub max_tokens: usize,
+    /// Generation temperature
+    pub temperature: f32,
+}
+
+/// Input image with optional metadata
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageInput {
+    /// Raw image data
+    pub data: Vec<u8>,
+    /// Optional description or context
+    pub description: Option<String>,
+    /// Image identifier for reference
+    pub id: Option<String>,
+}
+
+/// Multimodal response with text and image references
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultimodalResponse {
+    /// Generated text response
+    pub text: String,
+    /// Images referenced in the response
+    pub image_sources: Vec<ImageReference>,
+    /// Smart links generated in response
+    pub smart_links: Vec<SmartLink>,
+    /// Performance and quality metrics
+    pub generation_metrics: GenerationMetrics,
+    /// How well images were understood and used
+    pub image_utilization: ImageUtilization,
+}
+
+/// Reference to an image used in multimodal response
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageReference {
+    /// Image identifier
+    pub id: String,
+    /// Description of what was understood from the image
+    pub description: String,
+    /// Confidence in image understanding
+    pub confidence: f32,
+}
+
+/// Analysis of how well images were utilized in response
+#[cfg(feature = "multimodal")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageUtilization {
+    /// Whether images were referenced in response
+    pub images_referenced: bool,
+    /// Number of images actually used
+    pub images_used: usize,
+    /// Overall confidence in image understanding
+    pub understanding_confidence: f32,
 }

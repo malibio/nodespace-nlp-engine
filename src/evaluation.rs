@@ -37,12 +37,19 @@ impl EvaluationFramework {
         generated_text: &str,
         reference_text: &str,
     ) -> Result<RAGEvaluationResult, NLPError> {
-        let rouge_scores = self.rouge_evaluator.evaluate(generated_text, reference_text)?;
-        let bleu_scores = self.bleu_evaluator.evaluate(generated_text, reference_text)?;
-        let similarity_scores = self.similarity_evaluator.evaluate(generated_text, reference_text)?;
+        let rouge_scores = self
+            .rouge_evaluator
+            .evaluate(generated_text, reference_text)?;
+        let bleu_scores = self
+            .bleu_evaluator
+            .evaluate(generated_text, reference_text)?;
+        let similarity_scores = self
+            .similarity_evaluator
+            .evaluate(generated_text, reference_text)?;
 
         // Calculate overall quality before moving values
-        let overall_quality = self.calculate_overall_quality(&rouge_scores, &bleu_scores, &similarity_scores);
+        let overall_quality =
+            self.calculate_overall_quality(&rouge_scores, &bleu_scores, &similarity_scores);
 
         Ok(RAGEvaluationResult {
             rouge: rouge_scores,
@@ -77,22 +84,30 @@ impl EvaluationFramework {
         })
     }
 
-    fn calculate_overall_quality(&self, rouge: &ROUGEScores, bleu: &BLEUScores, similarity: &SimilarityScores) -> f32 {
+    fn calculate_overall_quality(
+        &self,
+        rouge: &ROUGEScores,
+        bleu: &BLEUScores,
+        similarity: &SimilarityScores,
+    ) -> f32 {
         // Weighted combination of metrics
         let rouge_weight = 0.4;
         let bleu_weight = 0.3;
         let similarity_weight = 0.3;
 
-        rouge_weight * rouge.rouge_l.f_score +
-        bleu_weight * bleu.bleu_4 +
-        similarity_weight * similarity.cosine_similarity
+        rouge_weight * rouge.rouge_l.f_score
+            + bleu_weight * bleu.bleu_4
+            + similarity_weight * similarity.cosine_similarity
     }
 
     fn calculate_precision(&self, retrieved: &[String], relevant: &[String]) -> f32 {
         if retrieved.is_empty() {
             return 0.0;
         }
-        let relevant_retrieved = retrieved.iter().filter(|doc| relevant.contains(doc)).count();
+        let relevant_retrieved = retrieved
+            .iter()
+            .filter(|doc| relevant.contains(doc))
+            .count();
         relevant_retrieved as f32 / retrieved.len() as f32
     }
 
@@ -100,7 +115,10 @@ impl EvaluationFramework {
         if relevant.is_empty() {
             return 1.0;
         }
-        let relevant_retrieved = relevant.iter().filter(|doc| retrieved.contains(doc)).count();
+        let relevant_retrieved = relevant
+            .iter()
+            .filter(|doc| retrieved.contains(doc))
+            .count();
         relevant_retrieved as f32 / relevant.len() as f32
     }
 }
@@ -123,9 +141,21 @@ impl ROUGEEvaluator {
         let _reference_words: Vec<&str> = reference.split_whitespace().collect();
 
         Ok(ROUGEScores {
-            rouge_1: ROUGEScore { precision: 0.75, recall: 0.80, f_score: 0.77 },
-            rouge_2: ROUGEScore { precision: 0.65, recall: 0.70, f_score: 0.67 },
-            rouge_l: ROUGEScore { precision: 0.70, recall: 0.75, f_score: 0.72 },
+            rouge_1: ROUGEScore {
+                precision: 0.75,
+                recall: 0.80,
+                f_score: 0.77,
+            },
+            rouge_2: ROUGEScore {
+                precision: 0.65,
+                recall: 0.70,
+                f_score: 0.67,
+            },
+            rouge_l: ROUGEScore {
+                precision: 0.70,
+                recall: 0.75,
+                f_score: 0.72,
+            },
         })
     }
 }
@@ -168,9 +198,7 @@ impl SimilarityEvaluator {
         } else if generated.is_empty() || reference.is_empty() {
             0.0
         } else {
-            let common_chars = generated.chars()
-                .filter(|c| reference.contains(*c))
-                .count();
+            let common_chars = generated.chars().filter(|c| reference.contains(*c)).count();
             let total_chars = generated.chars().count().max(reference.chars().count());
             common_chars as f32 / total_chars as f32
         };
@@ -298,7 +326,7 @@ mod tests {
         let framework = EvaluationFramework::new();
         let result = framework.evaluate_rag(
             "The capital of France is Paris.",
-            "Paris is the capital of France."
+            "Paris is the capital of France.",
         );
         assert!(result.is_ok());
         let scores = result.unwrap();
@@ -310,7 +338,7 @@ mod tests {
         let framework = EvaluationFramework::new();
         let retrieved = vec!["doc1".to_string(), "doc2".to_string()];
         let relevant = vec!["doc1".to_string(), "doc3".to_string()];
-        
+
         let result = framework.evaluate_semantic_search("test query", &retrieved, &relevant);
         assert!(result.is_ok());
         let eval = result.unwrap();
@@ -374,13 +402,34 @@ mod tests {
     fn test_overall_quality_calculation() {
         let framework = EvaluationFramework::new();
         let rouge = ROUGEScores {
-            rouge_1: ROUGEScore { precision: 0.8, recall: 0.8, f_score: 0.8 },
-            rouge_2: ROUGEScore { precision: 0.7, recall: 0.7, f_score: 0.7 },
-            rouge_l: ROUGEScore { precision: 0.75, recall: 0.75, f_score: 0.75 },
+            rouge_1: ROUGEScore {
+                precision: 0.8,
+                recall: 0.8,
+                f_score: 0.8,
+            },
+            rouge_2: ROUGEScore {
+                precision: 0.7,
+                recall: 0.7,
+                f_score: 0.7,
+            },
+            rouge_l: ROUGEScore {
+                precision: 0.75,
+                recall: 0.75,
+                f_score: 0.75,
+            },
         };
-        let bleu = BLEUScores { bleu_1: 0.8, bleu_2: 0.7, bleu_3: 0.6, bleu_4: 0.5 };
-        let similarity = SimilarityScores { cosine_similarity: 0.85, jaccard_similarity: 0.8, edit_distance: 5 };
-        
+        let bleu = BLEUScores {
+            bleu_1: 0.8,
+            bleu_2: 0.7,
+            bleu_3: 0.6,
+            bleu_4: 0.5,
+        };
+        let similarity = SimilarityScores {
+            cosine_similarity: 0.85,
+            jaccard_similarity: 0.8,
+            edit_distance: 5,
+        };
+
         let quality = framework.calculate_overall_quality(&rouge, &bleu, &similarity);
         assert!(quality > 0.0 && quality <= 1.0);
     }
