@@ -463,8 +463,7 @@ async fn test_rag_context_aware_generation() {
 #[tokio::test]
 async fn test_smart_link_generation() {
     use nodespace_nlp_engine::{
-        NodeMetadata, LinkType, SmartLink, ResponseProcessor,
-        nodespace_core_types::NodeId,
+        nodespace_core_types::NodeId, LinkType, NodeMetadata, ResponseProcessor, SmartLink,
     };
 
     // Create test node metadata
@@ -505,45 +504,58 @@ async fn test_smart_link_generation() {
 
     // Verify that links were detected
     assert!(!detected_links.is_empty(), "Should detect potential links");
-    
+
     // Check for specific expected links
-    let proposal_link = detected_links.iter().find(|link| link.text.contains("EcoSmart Proposal"));
-    assert!(proposal_link.is_some(), "Should detect EcoSmart Proposal link");
-    
-    let meeting_link = detected_links.iter().find(|link| link.text.contains("June 15th Meeting"));
-    assert!(meeting_link.is_some(), "Should detect June 15th Meeting link");
-    
-    let person_link = detected_links.iter().find(|link| link.text.contains("John Smith"));
+    let proposal_link = detected_links
+        .iter()
+        .find(|link| link.text.contains("EcoSmart Proposal"));
+    assert!(
+        proposal_link.is_some(),
+        "Should detect EcoSmart Proposal link"
+    );
+
+    let meeting_link = detected_links
+        .iter()
+        .find(|link| link.text.contains("June 15th Meeting"));
+    assert!(
+        meeting_link.is_some(),
+        "Should detect June 15th Meeting link"
+    );
+
+    let person_link = detected_links
+        .iter()
+        .find(|link| link.text.contains("John Smith"));
     assert!(person_link.is_some(), "Should detect John Smith link");
 
     // Test confidence scoring
     for link in &detected_links {
-        assert!(link.confidence > 0.0 && link.confidence <= 1.0, 
-                "Confidence should be between 0 and 1, got: {}", link.confidence);
-        assert!(link.confidence > 0.6, 
-                "High-quality matches should have confidence > 0.6, got: {}", link.confidence);
+        assert!(
+            link.confidence > 0.0 && link.confidence <= 1.0,
+            "Confidence should be between 0 and 1, got: {}",
+            link.confidence
+        );
+        assert!(
+            link.confidence > 0.6,
+            "High-quality matches should have confidence > 0.6, got: {}",
+            link.confidence
+        );
     }
 }
 
 /// Test smart link injection functionality
 #[tokio::test]
 async fn test_smart_link_injection() {
-    use nodespace_nlp_engine::{
-        NodeMetadata, ResponseProcessor,
-        nodespace_core_types::NodeId,
-    };
+    use nodespace_nlp_engine::{nodespace_core_types::NodeId, NodeMetadata, ResponseProcessor};
 
     // Create test node metadata
     let ecosmart_id = NodeId::new();
-    let node_metadata = vec![
-        NodeMetadata {
-            id: ecosmart_id.clone(),
-            title: "EcoSmart Proposal".to_string(),
-            node_type: "document".to_string(),
-            created_date: "2024-06-15".to_string(),
-            snippet: "Proposal for sustainable energy project".to_string(),
-        },
-    ];
+    let node_metadata = vec![NodeMetadata {
+        id: ecosmart_id.clone(),
+        title: "EcoSmart Proposal".to_string(),
+        node_type: "document".to_string(),
+        created_date: "2024-06-15".to_string(),
+        snippet: "Proposal for sustainable energy project".to_string(),
+    }];
 
     let original_content = "Please review the EcoSmart Proposal before the meeting.";
     let processor = ResponseProcessor::new();
@@ -554,11 +566,15 @@ async fn test_smart_link_injection() {
         .expect("Link injection should succeed");
 
     // Verify that markdown link was injected
-    assert!(enhanced_content.contains("[EcoSmart Proposal]"), 
-            "Should contain markdown link text");
-    assert!(enhanced_content.contains(&format!("nodespace://{}", ecosmart_id)), 
-            "Should contain nodespace:// link with correct ID");
-    
+    assert!(
+        enhanced_content.contains("[EcoSmart Proposal]"),
+        "Should contain markdown link text"
+    );
+    assert!(
+        enhanced_content.contains(&format!("nodespace://{}", ecosmart_id)),
+        "Should contain nodespace:// link with correct ID"
+    );
+
     println!("Original: {}", original_content);
     println!("Enhanced: {}", enhanced_content);
 }
@@ -567,8 +583,7 @@ async fn test_smart_link_injection() {
 #[tokio::test]
 async fn test_link_type_classification() {
     use nodespace_nlp_engine::{
-        NodeMetadata, LinkType, ResponseProcessor,
-        nodespace_core_types::NodeId,
+        nodespace_core_types::NodeId, LinkType, NodeMetadata, ResponseProcessor,
     };
 
     let processor = ResponseProcessor::new();
@@ -598,14 +613,20 @@ async fn test_link_type_classification() {
     for link in &detected_links {
         match link.text.as_str() {
             text if text.contains("Task Item") => {
-                assert_eq!(link.link_type, LinkType::TaskReference, 
-                          "Task should be classified as TaskReference");
-            },
+                assert_eq!(
+                    link.link_type,
+                    LinkType::TaskReference,
+                    "Task should be classified as TaskReference"
+                );
+            }
             text if text.contains("Client Meeting") => {
-                assert_eq!(link.link_type, LinkType::DateReference, 
-                          "Meeting should be classified as DateReference");
-            },
-            _ => {},
+                assert_eq!(
+                    link.link_type,
+                    LinkType::DateReference,
+                    "Meeting should be classified as DateReference"
+                );
+            }
+            _ => {}
         }
     }
 }
@@ -614,28 +635,24 @@ async fn test_link_type_classification() {
 #[tokio::test]
 async fn test_enhanced_request_with_smart_links() {
     use nodespace_nlp_engine::{
-        TextGenerationRequest, NodeMetadata, RAGContext, SmartLink, LinkType,
-        nodespace_core_types::NodeId,
+        nodespace_core_types::NodeId, LinkType, NodeMetadata, RAGContext, SmartLink,
+        TextGenerationRequest,
     };
 
-    let node_metadata = vec![
-        NodeMetadata {
-            id: NodeId::new(),
-            title: "Test Document".to_string(),
-            node_type: "document".to_string(),
-            created_date: "2024-06-15".to_string(),
-            snippet: "Test document content".to_string(),
-        },
-    ];
+    let node_metadata = vec![NodeMetadata {
+        id: NodeId::new(),
+        title: "Test Document".to_string(),
+        node_type: "document".to_string(),
+        created_date: "2024-06-15".to_string(),
+        snippet: "Test document content".to_string(),
+    }];
 
-    let smart_links = vec![
-        SmartLink {
-            text: "Test Document".to_string(),
-            node_id: NodeId::new(),
-            link_type: LinkType::DocumentReference,
-            confidence: 0.95,
-        },
-    ];
+    let smart_links = vec![SmartLink {
+        text: "Test Document".to_string(),
+        node_id: NodeId::new(),
+        link_type: LinkType::DocumentReference,
+        confidence: 0.95,
+    }];
 
     let rag_context = RAGContext {
         knowledge_sources: vec!["Test source".to_string()],
@@ -657,23 +674,35 @@ async fn test_enhanced_request_with_smart_links() {
     };
 
     // Verify all fields are properly set
-    assert!(request.enable_link_generation, "Link generation should be enabled");
-    assert!(!request.node_metadata.is_empty(), "Node metadata should be provided");
-    assert!(request.rag_context.is_some(), "RAG context should be provided");
-    
+    assert!(
+        request.enable_link_generation,
+        "Link generation should be enabled"
+    );
+    assert!(
+        !request.node_metadata.is_empty(),
+        "Node metadata should be provided"
+    );
+    assert!(
+        request.rag_context.is_some(),
+        "RAG context should be provided"
+    );
+
     let rag = request.rag_context.unwrap();
-    assert!(!rag.suggested_links.is_empty(), "Suggested links should be provided");
-    assert_eq!(rag.suggested_links[0].link_type, LinkType::DocumentReference, 
-              "Link type should be preserved");
+    assert!(
+        !rag.suggested_links.is_empty(),
+        "Suggested links should be provided"
+    );
+    assert_eq!(
+        rag.suggested_links[0].link_type,
+        LinkType::DocumentReference,
+        "Link type should be preserved"
+    );
 }
 
 /// Test deduplication of overlapping smart links
 #[tokio::test]
 async fn test_smart_link_deduplication() {
-    use nodespace_nlp_engine::{
-        NodeMetadata, ResponseProcessor,
-        nodespace_core_types::NodeId,
-    };
+    use nodespace_nlp_engine::{nodespace_core_types::NodeId, NodeMetadata, ResponseProcessor};
 
     // Create overlapping node metadata (partial title matches)
     let node_metadata = vec![
@@ -702,17 +731,25 @@ async fn test_smart_link_deduplication() {
 
     // Verify deduplication works - longer matches should be preferred
     let link_texts: Vec<&String> = detected_links.iter().map(|link| &link.text).collect();
-    
-    // Should prefer "EcoSmart Energy Proposal" over "EcoSmart Proposal" 
-    assert!(link_texts.iter().any(|text| text.contains("EcoSmart Energy Proposal") || text.contains("EcoSmart")),
-            "Should detect at least one EcoSmart-related link");
-    
+
+    // Should prefer "EcoSmart Energy Proposal" over "EcoSmart Proposal"
+    assert!(
+        link_texts
+            .iter()
+            .any(|text| text.contains("EcoSmart Energy Proposal") || text.contains("EcoSmart")),
+        "Should detect at least one EcoSmart-related link"
+    );
+
     // Verify no duplicate/overlapping links in final result
     for (i, link1) in detected_links.iter().enumerate() {
         for (j, link2) in detected_links.iter().enumerate() {
             if i != j {
-                assert!(!link1.text.contains(&link2.text) && !link2.text.contains(&link1.text),
-                        "Links should not overlap: '{}' and '{}'", link1.text, link2.text);
+                assert!(
+                    !link1.text.contains(&link2.text) && !link2.text.contains(&link1.text),
+                    "Links should not overlap: '{}' and '{}'",
+                    link1.text,
+                    link2.text
+                );
             }
         }
     }

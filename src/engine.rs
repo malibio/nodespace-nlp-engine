@@ -2,6 +2,8 @@
 
 use crate::embedding::EmbeddingGenerator;
 use crate::error::NLPError;
+#[cfg(feature = "multimodal")]
+use crate::image_processing::{ImageEmbeddingGenerator, ImageMetadataExtractor};
 use crate::models::{DeviceType, NLPConfig};
 use crate::surrealql::SurrealQLGenerator;
 use crate::text_generation::TextGenerator;
@@ -19,6 +21,8 @@ pub struct LocalNLPEngine {
     embedding_generator: Arc<RwLock<Option<EmbeddingGenerator>>>,
     text_generator: Arc<RwLock<Option<TextGenerator>>>,
     surrealql_generator: Arc<RwLock<Option<SurrealQLGenerator>>>,
+    #[cfg(feature = "multimodal")]
+    image_embedding_generator: Arc<RwLock<Option<ImageEmbeddingGenerator>>>,
     device_type: DeviceType,
     initialized: Arc<RwLock<bool>>,
 }
@@ -38,6 +42,8 @@ impl LocalNLPEngine {
             embedding_generator: Arc::new(RwLock::new(None)),
             text_generator: Arc::new(RwLock::new(None)),
             surrealql_generator: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "multimodal")]
+            image_embedding_generator: Arc::new(RwLock::new(None)),
             device_type,
             initialized: Arc::new(RwLock::new(false)),
         }
@@ -79,10 +85,27 @@ impl LocalNLPEngine {
         // Initialize SurrealQL generator
         let surrealql_generator = SurrealQLGenerator::new();
 
+        // Initialize image embedding generator (if multimodal feature is enabled)
+        #[cfg(feature = "multimodal")]
+        let image_embedding_generator = {
+            let mut generator = ImageEmbeddingGenerator::new(self.device_type.clone())?;
+            match generator.initialize().await {
+                Ok(()) => Some(generator),
+                Err(e) => {
+                    tracing::warn!("Failed to initialize image embedding generator (multimodal features will be disabled): {}", e);
+                    None
+                }
+            }
+        };
+
         // Store the initialized components
         *self.embedding_generator.write().await = Some(embedding_generator);
         *self.text_generator.write().await = Some(text_generator);
         *self.surrealql_generator.write().await = Some(surrealql_generator);
+        #[cfg(feature = "multimodal")]
+        {
+            *self.image_embedding_generator.write().await = image_embedding_generator;
+        }
 
         // Mark as initialized
         *self.initialized.write().await = true;
@@ -160,6 +183,15 @@ impl LocalNLPEngine {
     ) -> Result<Arc<RwLock<Option<SurrealQLGenerator>>>, NLPError> {
         self.ensure_initialized().await?;
         Ok(self.surrealql_generator.clone())
+    }
+
+    /// Get the image embedding generator (ensuring it's initialized)
+    #[cfg(feature = "multimodal")]
+    async fn get_image_embedding_generator(
+        &self,
+    ) -> Result<Arc<RwLock<Option<ImageEmbeddingGenerator>>>, NLPError> {
+        self.ensure_initialized().await?;
+        Ok(self.image_embedding_generator.clone())
     }
 
     /// Generate embeddings with advanced preprocessing
@@ -243,6 +275,11 @@ impl LocalNLPEngine {
             embedding_gen.clear_cache();
         }
 
+        #[cfg(feature = "multimodal")]
+        if let Some(image_embedding_gen) = self.image_embedding_generator.read().await.as_ref() {
+            image_embedding_gen.clear_cache();
+        }
+
         Ok(())
     }
 
@@ -255,9 +292,25 @@ impl LocalNLPEngine {
             .as_ref()
             .map(|embedding_gen| embedding_gen.cache_stats());
 
+        #[cfg(feature = "multimodal")]
+        let image_embedding_cache = self
+            .image_embedding_generator
+            .read()
+            .await
+            .as_ref()
+            .map(|image_embedding_gen| image_embedding_gen.cache_stats());
+
         CacheStats {
             embedding_cache_size: embedding_cache.map(|(size, _)| size).unwrap_or(0),
             embedding_cache_capacity: embedding_cache.map(|(_, cap)| cap).unwrap_or(0),
+            #[cfg(feature = "multimodal")]
+            image_embedding_cache_size: image_embedding_cache.map(|(size, _)| size).unwrap_or(0),
+            #[cfg(feature = "multimodal")]
+            image_embedding_cache_capacity: image_embedding_cache.map(|(_, cap)| cap).unwrap_or(0),
+            #[cfg(not(feature = "multimodal"))]
+            image_embedding_cache_size: 0,
+            #[cfg(not(feature = "multimodal"))]
+            image_embedding_cache_capacity: 0,
         }
     }
 }
@@ -356,6 +409,132 @@ impl NLPEngine for LocalNLPEngine {
     fn embedding_dimensions(&self) -> usize {
         self.config.models.embedding.dimensions
     }
+
+    /// Generate vector embedding for image content (multimodal)
+    #[cfg(feature = "multimodal")]
+    async fn generate_image_embedding(&self, image_data: &[u8]) -> NodeSpaceResult<Vec<f32>> {
+        let generator = self
+            .get_image_embedding_generator()
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+
+        let generator = generator.read().await;
+        let generator = generator.as_ref().ok_or_else(|| {
+            NodeSpaceError::ProcessingError(
+                "Image embedding generator not available (multimodal models failed to load)"
+                    .to_string(),
+            )
+        })?;
+
+        generator
+            .generate_embedding(image_data)
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+    }
+
+    /// Extract comprehensive metadata from image
+    #[cfg(feature = "multimodal")]
+    async fn extract_image_metadata(
+        &self,
+        image_data: &[u8],
+    ) -> NodeSpaceResult<crate::ImageMetadata> {
+        ImageMetadataExtractor::extract_metadata(image_data)
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+    }
+
+    /// Generate multimodal response with text and image understanding
+    #[cfg(feature = "multimodal")]
+    async fn generate_multimodal_response(
+        &self,
+        request: crate::MultimodalRequest,
+    ) -> NodeSpaceResult<crate::MultimodalResponse> {
+        let _timer = Timer::new("multimodal_response_generation");
+
+        // Generate embeddings for all input images
+        let mut image_embeddings = Vec::new();
+        let mut image_references = Vec::new();
+
+        for (i, image_input) in request.images.iter().enumerate() {
+            let embedding = self.generate_image_embedding(&image_input.data).await?;
+            image_embeddings.push(embedding);
+
+            // Create basic image reference
+            let image_ref = crate::ImageReference {
+                id: image_input
+                    .id
+                    .clone()
+                    .unwrap_or_else(|| format!("img_{}", i)),
+                description: image_input
+                    .description
+                    .clone()
+                    .unwrap_or_else(|| "Image".to_string()),
+                confidence: 0.8, // Default confidence for now
+            };
+            image_references.push(image_ref);
+        }
+
+        // For now, use the existing text generation with image context
+        // TODO: Integrate Phi-4 multimodal model for true multimodal understanding
+        let enhanced_prompt = self.build_multimodal_prompt(&request, &image_references);
+
+        let text_request = crate::TextGenerationRequest {
+            prompt: enhanced_prompt,
+            max_tokens: request.max_tokens,
+            temperature: request.temperature,
+            context_window: 8192, // Use default context window
+            conversation_mode: false,
+            rag_context: None,
+            enable_link_generation: request.enable_smart_links,
+            node_metadata: Vec::new(), // TODO: Populate from context_nodes
+        };
+
+        let text_response = self.generate_text_enhanced(text_request).await?;
+
+        // Build multimodal response
+        let response = crate::MultimodalResponse {
+            text: text_response.text,
+            image_sources: image_references,
+            smart_links: Vec::new(), // TODO: Extract from enhanced response
+            generation_metrics: text_response.generation_metrics,
+            image_utilization: crate::ImageUtilization {
+                images_referenced: !request.images.is_empty(),
+                images_used: request.images.len(),
+                understanding_confidence: 0.7, // Placeholder for now
+            },
+        };
+
+        Ok(response)
+    }
+}
+
+#[cfg(feature = "multimodal")]
+impl LocalNLPEngine {
+    /// Build multimodal prompt combining text query with image context
+    fn build_multimodal_prompt(
+        &self,
+        request: &crate::MultimodalRequest,
+        image_refs: &[crate::ImageReference],
+    ) -> String {
+        let mut prompt = "# Multimodal Query\n\n".to_string();
+        prompt.push_str(&format!("User query: {}\n\n", request.text_query));
+
+        if !image_refs.is_empty() {
+            prompt.push_str("## Images provided:\n");
+            for (i, img_ref) in image_refs.iter().enumerate() {
+                prompt.push_str(&format!(
+                    "{}. Image ID: {} - {}\n",
+                    i + 1,
+                    img_ref.id,
+                    img_ref.description
+                ));
+            }
+            prompt.push_str("\nPlease analyze the provided images in context of the user's query and provide a comprehensive response.\n\n");
+        }
+
+        prompt.push_str("Response:");
+        prompt
+    }
 }
 
 impl Default for LocalNLPEngine {
@@ -402,4 +581,6 @@ pub enum QueryComplexity {
 pub struct CacheStats {
     pub embedding_cache_size: usize,
     pub embedding_cache_capacity: usize,
+    pub image_embedding_cache_size: usize,
+    pub image_embedding_cache_capacity: usize,
 }
