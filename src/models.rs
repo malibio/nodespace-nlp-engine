@@ -118,15 +118,15 @@ impl Default for NLPConfig {
         Self {
             models: ModelConfigs {
                 embedding: EmbeddingModelConfig {
-                    model_name: "BAAI/bge-small-en-v1.5".to_string(),
+                    model_name: "BAAI/bge-small-en-v1.5".to_string(), // Text-only for now, plan multimodal upgrade
                     model_path: None,
                     dimensions: 384,
                     max_sequence_length: 512,
                     normalize: true,
                 },
                 text_generation: TextGenerationModelConfig {
-                    model_name: "local/gemma-3-1b-it-onnx".to_string(), // Client should provide actual model
-                    model_path: None, // Client should provide the actual model path
+                    model_name: "local/gemma-3-1b-it-onnx".to_string(),
+                    model_path: Some(PathBuf::from("../models/gemma-3-1b-it-onnx/model.onnx")), // Shared NodeSpace models directory  
                     max_context_length: 8192, // Gemma 3 1B context length
                     default_temperature: 0.7,
                     default_max_tokens: 1024,
