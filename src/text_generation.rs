@@ -10,7 +10,6 @@ use crate::{
 };
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 // Real ML dependencies using fastembed for ONNX Runtime compatibility
 #[cfg(feature = "real-ml")]
@@ -79,6 +78,8 @@ impl TextGenerator {
 
     #[cfg(feature = "real-ml")]
     async fn load_onnx_model(&mut self) -> Result<(), NLPError> {
+        use std::path::PathBuf;
+        
         // Use client-provided model path or fallback to default
         let default_path = PathBuf::from("models/gemma-3-1b-it-onnx/model.onnx");
         let base_model_path = self.config.model_path.as_ref().unwrap_or(&default_path);

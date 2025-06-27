@@ -27,7 +27,7 @@ impl EvaluationFramework {
         Self {
             rouge_evaluator: ROUGEEvaluator::new(ROUGEConfig::default()),
             bleu_evaluator: BLEUEvaluator::new(BLEUConfig::default()),
-            similarity_evaluator: SimilarityEvaluator::default(),
+            similarity_evaluator: SimilarityEvaluator,
         }
     }
 
@@ -41,11 +41,14 @@ impl EvaluationFramework {
         let bleu_scores = self.bleu_evaluator.evaluate(generated_text, reference_text)?;
         let similarity_scores = self.similarity_evaluator.evaluate(generated_text, reference_text)?;
 
+        // Calculate overall quality before moving values
+        let overall_quality = self.calculate_overall_quality(&rouge_scores, &bleu_scores, &similarity_scores);
+
         Ok(RAGEvaluationResult {
             rouge: rouge_scores,
             bleu: bleu_scores,
             similarity: similarity_scores,
-            overall_quality: self.calculate_overall_quality(&rouge_scores, &bleu_scores, &similarity_scores),
+            overall_quality,
         })
     }
 
@@ -286,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_evaluation_framework_creation() {
-        let framework = EvaluationFramework::new();
+        let _framework = EvaluationFramework::new();
         assert!(true); // Framework created successfully
     }
 
@@ -333,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_similarity_evaluator() {
-        let evaluator = SimilarityEvaluator::default();
+        let evaluator = SimilarityEvaluator;
         let result = evaluator.evaluate("identical", "identical");
         assert!(result.is_ok());
         let scores = result.unwrap();
@@ -342,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_empty_text_similarity() {
-        let evaluator = SimilarityEvaluator::default();
+        let evaluator = SimilarityEvaluator;
         let result = evaluator.evaluate("", "test");
         assert!(result.is_ok());
         let scores = result.unwrap();
