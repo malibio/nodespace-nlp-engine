@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn create_nlp_engine() -> Result<LocalNLPEngine, Box<dyn std::error::Error>> {
-    let mut engine = LocalNLPEngine::new();
+    let engine = LocalNLPEngine::new();
     engine.initialize().await?;
 
     println!("✅ NLP engine initialized successfully");

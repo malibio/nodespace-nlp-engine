@@ -9,9 +9,7 @@
 use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 
 #[cfg(feature = "multimodal")]
-use nodespace_nlp_engine::{
-    ImageInput, MultimodalRequest, ImageMetadata
-};
+use nodespace_nlp_engine::{ImageInput, ImageMetadata, MultimodalRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create and initialize the NLP engine
     let engine = LocalNLPEngine::new();
     println!("📋 Initializing NLP Engine...");
-    
+
     match engine.initialize().await {
         Ok(()) => println!("✅ Engine initialized successfully!"),
         Err(e) => {
@@ -37,13 +35,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test basic text capabilities first
     println!("🔤 Testing Text Capabilities");
     println!("----------------------------");
-    
+
     let text = "This is a test sentence for embedding generation.";
     match engine.generate_embedding(text).await {
         Ok(embedding) => {
             println!("✅ Text embedding generated successfully");
             println!("📊 Embedding dimensions: {}", embedding.len());
-            println!("🎯 First 5 values: {:?}\n", &embedding[..5.min(embedding.len())]);
+            println!(
+                "🎯 First 5 values: {:?}\n",
+                &embedding[..5.min(embedding.len())]
+            );
         }
         Err(e) => println!("❌ Text embedding failed: {}\n", e),
     }
@@ -56,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Create a simple test image (1x1 PNG)
         let test_image_data = create_test_image();
-        
+
         // Test image metadata extraction
         println!("📋 Extracting image metadata...");
         match engine.extract_image_metadata(&test_image_data).await {
@@ -73,7 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(embedding) => {
                 println!("✅ Image embedding generated successfully");
                 println!("📊 Embedding dimensions: {}", embedding.len());
-                println!("🎯 First 5 values: {:?}", &embedding[..5.min(embedding.len())]);
+                println!(
+                    "🎯 First 5 values: {:?}",
+                    &embedding[..5.min(embedding.len())]
+                );
             }
             Err(e) => {
                 println!("❌ Image embedding failed: {}", e);
@@ -96,11 +100,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             temperature: 0.7,
         };
 
-        match engine.generate_multimodal_response(multimodal_request).await {
+        match engine
+            .generate_multimodal_response(multimodal_request)
+            .await
+        {
             Ok(response) => {
                 println!("✅ Multimodal response generated successfully");
                 println!("💬 Response: {}", response.text);
-                println!("🖼️  Images used: {}", response.image_utilization.images_used);
+                println!(
+                    "🖼️  Images used: {}",
+                    response.image_utilization.images_used
+                );
                 println!("🔗 Smart links: {}", response.smart_links.len());
             }
             Err(e) => {
@@ -122,9 +132,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let status = engine.status().await;
     println!("🔧 Initialized: {}", status.initialized);
     println!("💻 Device: {:?}", status.device_type);
-    
+
     if let Some(embedding_info) = status.embedding_info {
-        println!("📐 Text embeddings: {} dimensions", embedding_info.dimensions);
+        println!(
+            "📐 Text embeddings: {} dimensions",
+            embedding_info.dimensions
+        );
         println!("🗂️  Cache: {} items", embedding_info.cache_stats.0);
     }
 
@@ -138,18 +151,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "multimodal")]
 fn display_image_metadata(metadata: &ImageMetadata) {
-    println!("📏 Dimensions: {}x{}", metadata.dimensions.0, metadata.dimensions.1);
+    println!(
+        "📏 Dimensions: {}x{}",
+        metadata.dimensions.0, metadata.dimensions.1
+    );
     println!("📁 Format: {}", metadata.format);
     println!("💾 File size: {} bytes", metadata.file_size);
-    
+
     if let Some(timestamp) = &metadata.timestamp {
         println!("📅 Timestamp: {}", timestamp);
     }
-    
+
     if let Some((lat, lon)) = metadata.gps_coordinates {
         println!("📍 GPS: {:.6}, {:.6}", lat, lon);
     }
-    
+
     if let Some(camera_info) = &metadata.camera_info {
         if let Some(make) = &camera_info.make {
             println!("📸 Camera: {}", make);
@@ -158,11 +174,11 @@ fn display_image_metadata(metadata: &ImageMetadata) {
             println!("📷 Model: {}", model);
         }
     }
-    
+
     if let Some(color_space) = &metadata.color_space {
         println!("🎨 Color space: {}", color_space);
     }
-    
+
     println!("⏱️  Processing time: {} ms", metadata.processing_time_ms);
 }
 
@@ -179,6 +195,6 @@ fn create_test_image() -> Vec<u8> {
         0x54, 0x08, 0xD7, 0x63, 0xF8, 0x0F, 0x00, 0x00, // compressed image data
         0x00, 0xFF, 0xFF, 0x03, 0x00, 0x00, 0x06, 0x00, // (red pixel)
         0x05, 0x02, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x49, // IEND chunk
-        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     ]
 }

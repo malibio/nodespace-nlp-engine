@@ -117,7 +117,7 @@ impl NLPConfig {
     /// Create configuration with custom model directory
     pub fn with_model_directory<P: Into<PathBuf>>(model_dir: P) -> Self {
         let model_dir = model_dir.into();
-        
+
         Self {
             models: ModelConfigs {
                 embedding: EmbeddingModelConfig {
@@ -162,22 +162,25 @@ impl NLPConfig {
         if let Ok(models_dir) = std::env::var("NODESPACE_MODELS_DIR") {
             return Some(PathBuf::from(models_dir).join(model_file));
         }
-        
+
         // Try workspace-relative path (for development)
         let current_dir = std::env::current_dir().ok()?;
-        if let Some(workspace_models) = current_dir.parent().map(|p| p.join("models").join(model_file)) {
+        if let Some(workspace_models) = current_dir
+            .parent()
+            .map(|p| p.join("models").join(model_file))
+        {
             if workspace_models.exists() {
                 return Some(workspace_models);
             }
         }
-        
+
         // Fall back to cache directory
         let home_dir = std::env::var("HOME").ok()?;
         let model_cache_dir = PathBuf::from(home_dir)
             .join(".cache")
             .join("nodespace")
             .join("models");
-        
+
         Some(model_cache_dir.join(model_file))
     }
 }

@@ -29,12 +29,15 @@ use exif;
 type ImageEmbeddingCache = Arc<DashMap<String, (Vec<f32>, DateTime<Utc>)>>;
 
 #[cfg(feature = "multimodal")]
-type ExifResult = Result<(
-    Option<DateTime<Utc>>,
-    Option<(f64, f64)>,
-    Option<CameraInfo>,
-    Option<u8>,
-), NLPError>;
+type ExifResult = Result<
+    (
+        Option<DateTime<Utc>>,
+        Option<(f64, f64)>,
+        Option<CameraInfo>,
+        Option<u8>,
+    ),
+    NLPError,
+>;
 
 /// Image embedding generator using CLIP via fastembed
 #[cfg(feature = "multimodal")]

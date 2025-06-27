@@ -427,8 +427,8 @@ async fn test_rag_context_aware_generation() {
         !no_context_response.text.is_empty(),
         "Response without context should not be empty"
     );
-    assert_eq!(
-        no_context_response.context_utilization.context_referenced, false,
+    assert!(
+        !no_context_response.context_utilization.context_referenced,
         "Should not reference context when none provided"
     );
 
@@ -462,9 +462,7 @@ async fn test_rag_context_aware_generation() {
 /// Test smart link generation functionality
 #[tokio::test]
 async fn test_smart_link_generation() {
-    use nodespace_nlp_engine::{
-        nodespace_core_types::NodeId, LinkType, NodeMetadata, ResponseProcessor, SmartLink,
-    };
+    use nodespace_nlp_engine::{nodespace_core_types::NodeId, NodeMetadata, ResponseProcessor};
 
     // Create test node metadata
     let node_metadata = vec![

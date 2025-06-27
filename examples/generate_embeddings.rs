@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Example texts
-    let texts = vec![
+    let texts = [
         "Meeting about Q3 planning with the engineering team",
         "Customer feedback review session",
         "Sprint retrospective for the last two weeks",

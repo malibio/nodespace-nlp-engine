@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_evaluation_framework_creation() {
         let _framework = EvaluationFramework::new();
-        assert!(true); // Framework created successfully
+        // Framework created successfully
     }
 
     #[test]

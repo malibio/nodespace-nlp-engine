@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     "#;
 
-    let natural_queries = vec![
+    let natural_queries = [
         "Find all meetings from last week",
         "Get tasks assigned to John that are high priority",
         "Show meetings with more than 5 participants",
@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 3: Entity analysis
     println!("\n🏷️  Example 3: Entity Analysis (Advanced)");
 
-    let entity_texts = vec![
+    let entity_texts = [
         "Create a meeting about Q4 budget review with finance team for next Thursday at 2 PM",
         "Task: Implement user authentication with OAuth2 - high priority, due Friday",
         "Customer feedback session with Acme Corp about product roadmap",
@@ -112,7 +112,7 @@ Provide a structured analysis:"#,
     // Example 4: Natural language to structured query
     println!("\n🔍 Example 4: Complex Query Generation");
 
-    let complex_queries = vec![
+    let complex_queries = [
         "Find all meetings from the last month where John was a participant and the status is completed",
         "Get high priority tasks that are overdue and assigned to members of the engineering team",
         "Show me meetings and related tasks for the Q4 planning project",
