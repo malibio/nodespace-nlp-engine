@@ -65,6 +65,14 @@ impl EmbeddingGenerator {
 
     #[cfg(feature = "real-ml")]
     async fn load_fastembed_model(&mut self) -> Result<(), NLPError> {
+        // Check if we have a local model path configured
+        if let Some(model_path) = &self.config.model_path {
+            // Try to use local ONNX model (future enhancement)
+            return Err(NLPError::ModelLoading {
+                message: format!("Local ONNX model loading not yet implemented for path: {:?}. Using fastembed for now.", model_path),
+            });
+        }
+
         // Map model name to fastembed EmbeddingModel enum
         let embedding_model = match self.config.model_name.as_str() {
             "BAAI/bge-small-en-v1.5" => EmbeddingModel::BGESmallENV15,
@@ -77,10 +85,13 @@ impl EmbeddingGenerator {
             }
         };
 
-        // Configure initialization options
-        let init_options = InitOptions::new(embedding_model).with_show_download_progress(true);
+        // Configure initialization options - try to use cached model first
+        let cache_dir = std::path::PathBuf::from("/Users/malibio/.cache/fastembed");
+        let init_options = InitOptions::new(embedding_model)
+            .with_show_download_progress(false) // Disable download progress to reduce noise
+            .with_cache_dir(cache_dir);
 
-        // Initialize the model
+        // Initialize the model (will use cache if available, download if needed)
         let model = TextEmbedding::try_new(init_options).map_err(|e| NLPError::ModelLoading {
             message: format!("Failed to initialize fastembed model: {}", e),
         })?;

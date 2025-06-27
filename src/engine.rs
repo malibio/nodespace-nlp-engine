@@ -33,6 +33,11 @@ impl LocalNLPEngine {
         Self::with_config(NLPConfig::default())
     }
 
+    /// Create a new LocalNLPEngine with custom model directory
+    pub fn with_model_directory<P: Into<std::path::PathBuf>>(model_dir: P) -> Self {
+        Self::with_config(NLPConfig::with_model_directory(model_dir))
+    }
+
     /// Create a new LocalNLPEngine with custom configuration
     pub fn with_config(config: NLPConfig) -> Self {
         let device_type = config.device.device_type.clone();

@@ -113,20 +113,89 @@ pub struct PerformanceConfig {
     pub pool_size: usize,
 }
 
-impl Default for NLPConfig {
-    fn default() -> Self {
+impl NLPConfig {
+    /// Create configuration with custom model directory
+    pub fn with_model_directory<P: Into<PathBuf>>(model_dir: P) -> Self {
+        let model_dir = model_dir.into();
+        
         Self {
             models: ModelConfigs {
                 embedding: EmbeddingModelConfig {
-                    model_name: "BAAI/bge-small-en-v1.5".to_string(), // Text-only for now, plan multimodal upgrade
-                    model_path: None,
+                    model_name: "BAAI/bge-small-en-v1.5".to_string(),
+                    model_path: None, // Future: local embedding model path
                     dimensions: 384,
                     max_sequence_length: 512,
                     normalize: true,
                 },
                 text_generation: TextGenerationModelConfig {
                     model_name: "local/gemma-3-1b-it-onnx".to_string(),
-                    model_path: Some(PathBuf::from("../models/gemma-3-1b-it-onnx/model.onnx")), // Shared NodeSpace models directory
+                    model_path: Some(model_dir.join("gemma-3-1b-it-onnx/model.onnx")),
+                    max_context_length: 8192,
+                    default_temperature: 0.7,
+                    default_max_tokens: 1024,
+                    default_top_p: 0.95,
+                },
+            },
+            device: DeviceConfig {
+                device_type: DeviceType::Auto,
+                gpu_device_id: None,
+                max_memory_gb: None,
+            },
+            cache: CacheConfig {
+                enable_model_cache: true,
+                enable_embedding_cache: true,
+                max_cache_size_mb: 1024,
+                cache_ttl_seconds: 3600,
+            },
+            performance: PerformanceConfig {
+                cpu_threads: None,
+                embedding_batch_size: 32,
+                enable_async_processing: true,
+                pool_size: 4,
+            },
+        }
+    }
+
+    /// Get default model path for a given model file
+    fn get_default_model_path(model_file: &str) -> Option<PathBuf> {
+        // Try environment variable first
+        if let Ok(models_dir) = std::env::var("NODESPACE_MODELS_DIR") {
+            return Some(PathBuf::from(models_dir).join(model_file));
+        }
+        
+        // Try workspace-relative path (for development)
+        let current_dir = std::env::current_dir().ok()?;
+        if let Some(workspace_models) = current_dir.parent().map(|p| p.join("models").join(model_file)) {
+            if workspace_models.exists() {
+                return Some(workspace_models);
+            }
+        }
+        
+        // Fall back to cache directory
+        let home_dir = std::env::var("HOME").ok()?;
+        let model_cache_dir = PathBuf::from(home_dir)
+            .join(".cache")
+            .join("nodespace")
+            .join("models");
+        
+        Some(model_cache_dir.join(model_file))
+    }
+}
+
+impl Default for NLPConfig {
+    fn default() -> Self {
+        Self {
+            models: ModelConfigs {
+                embedding: EmbeddingModelConfig {
+                    model_name: "BAAI/bge-small-en-v1.5".to_string(), // Text-only for now, plan multimodal upgrade
+                    model_path: None, // Future: local embedding model path when available
+                    dimensions: 384,
+                    max_sequence_length: 512,
+                    normalize: true,
+                },
+                text_generation: TextGenerationModelConfig {
+                    model_name: "local/gemma-3-1b-it-onnx".to_string(),
+                    model_path: NLPConfig::get_default_model_path("gemma-3-1b-it-onnx/model.onnx"),
                     max_context_length: 8192, // Gemma 3 1B context length
                     default_temperature: 0.7,
                     default_max_tokens: 1024,
