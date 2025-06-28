@@ -11,35 +11,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    println!("🚀 NodeSpace Sample Database Embedding Regeneration");
-    println!("💫 Using fastembed 4.9 with BAAI/bge-small-en-v1.5 model");
-    println!("════════════════════════════════════════════════════════");
+    println!("NodeSpace Sample Database Embedding Regeneration");
+    println!("Using fastembed 4.9 with BAAI/bge-small-en-v1.5 model");
+    println!("============================================================");
 
     // Initialize the NLP engine with real ML
-    println!("\n📊 Initializing NLP engine with fastembed...");
+    println!("\nInitializing NLP engine with fastembed...");
     let nlp_engine = create_nlp_engine().await?;
 
     // Simulate sample database content (in real usage, this would come from data-store)
-    println!("\n📋 Loading sample database content...");
+    println!("\nLoading sample database content...");
     let sample_content = create_sample_content();
-    println!("✅ Found {} content items to embed", sample_content.len());
+    println!("Found {} content items to embed", sample_content.len());
 
     // Generate embeddings for all content
-    println!("\n🧠 Generating embeddings with fastembed...");
+    println!("\nGenerating embeddings with fastembed...");
     let embeddings = generate_embeddings_for_content(&nlp_engine, &sample_content).await?;
 
     // Display results
-    println!("\n📈 Embedding Generation Results:");
-    println!("══════════════════════════════════════");
+    println!("\nEmbedding Generation Results:");
+    println!("======================================");
     display_embedding_results(&sample_content, &embeddings).await?;
 
     // Demonstrate semantic search
-    println!("\n🔍 Semantic Search Demonstration:");
-    println!("═══════════════════════════════════════");
+    println!("\nSemantic Search Demonstration:");
+    println!("=======================================");
     demonstrate_semantic_search(&nlp_engine, &sample_content, &embeddings).await?;
 
-    println!("\n🎉 Sample database embedding regeneration completed!");
-    println!("💡 Integration status: Ready for data-store connection");
+    println!("\nSample database embedding regeneration completed!");
+    println!("Integration status: Ready for data-store connection");
 
     Ok(())
 }
@@ -48,7 +48,7 @@ async fn create_nlp_engine() -> Result<LocalNLPEngine, Box<dyn std::error::Error
     let engine = LocalNLPEngine::new();
     engine.initialize().await?;
 
-    println!("✅ NLP engine initialized successfully");
+    println!("NLP engine initialized successfully");
     println!("   Model: BAAI/bge-small-en-v1.5");
     println!("   Dimensions: 384");
     println!("   Device: Auto-selected");
@@ -121,7 +121,7 @@ async fn generate_embeddings_for_content(
         .map(|item| item.content.clone())
         .collect();
 
-    println!("🔄 Generating embeddings in batch...");
+    println!("Generating embeddings in batch...");
     let start_time = std::time::Instant::now();
 
     // Use batch processing for efficiency
@@ -129,7 +129,7 @@ async fn generate_embeddings_for_content(
 
     let elapsed = start_time.elapsed();
     println!(
-        "✅ Generated {} embeddings in {:.2}s",
+        "Generated {} embeddings in {:.2}s",
         batch_embeddings.len(),
         elapsed.as_secs_f64()
     );
@@ -154,7 +154,7 @@ async fn display_embedding_results(
                 item.content.clone()
             };
 
-            println!("✓ {}: {} dimensions", item.id, embedding.len());
+            println!("{}: {} dimensions", item.id, embedding.len());
             println!("  Category: {}", item.category);
             println!("  Content: {}", preview);
             println!(
@@ -181,7 +181,7 @@ async fn demonstrate_semantic_search(
     ];
 
     for query in search_queries {
-        println!("\n🔍 Query: \"{}\"", query);
+        println!("\nQuery: \"{}\"", query);
 
         // Generate embedding for the query
         let query_embedding = engine.generate_embedding(query).await?;

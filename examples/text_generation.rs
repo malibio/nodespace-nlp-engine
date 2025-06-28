@@ -6,16 +6,16 @@ use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Skip tracing initialization - mistralrs handles this
 
-    println!("🚀 NodeSpace NLP Engine - Text Generation Example");
+    println!("NodeSpace NLP Engine - Text Generation Example");
 
     // Create and initialize the NLP engine
     let engine = LocalNLPEngine::new();
-    println!("📊 Initializing NLP engine...");
+    println!("Initializing NLP engine...");
     engine.initialize().await?;
 
     // Check engine status
     let status = engine.status().await;
-    println!("✅ Engine initialized successfully!");
+    println!("Engine initialized successfully!");
     if let Some(text_info) = status.text_generation_info {
         println!("   Model: {}", text_info.model_name);
         println!("   Max context: {} tokens", text_info.max_context_length);
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Example 1: Basic text generation
-    println!("\n💬 Example 1: Basic Text Generation");
+    println!("\nExample 1: Basic Text Generation");
     let prompt = "Write a brief summary of what makes a good team meeting:";
     println!("Prompt: \"{}\"", prompt);
 
@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\"{}\"", generated_text);
 
     // Example 2: SurrealQL generation
-    println!("\n🗄️  Example 2: SurrealQL Generation");
+    println!("\nExample 2: SurrealQL Generation");
 
     let schema_context = r#"
     TABLE meeting {
@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Example 3: Entity analysis
-    println!("\n🏷️  Example 3: Entity Analysis (Advanced)");
+    println!("\nExample 3: Entity Analysis (Advanced)");
 
     let entity_texts = [
         "Create a meeting about Q4 budget review with finance team for next Thursday at 2 PM",
@@ -110,7 +110,7 @@ Provide a structured analysis:"#,
     }
 
     // Example 4: Natural language to structured query
-    println!("\n🔍 Example 4: Complex Query Generation");
+    println!("\nExample 4: Complex Query Generation");
 
     let complex_queries = [
         "Find all meetings from the last month where John was a participant and the status is completed",
@@ -126,7 +126,7 @@ Provide a structured analysis:"#,
         println!("```sql\n{}\n```", surrealql);
     }
 
-    println!("\n🎉 Text generation examples completed successfully!");
+    println!("\nText generation examples completed successfully!");
 
     Ok(())
 }

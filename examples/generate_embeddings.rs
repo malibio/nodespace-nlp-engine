@@ -8,16 +8,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "real-ml"))]
     tracing_subscriber::fmt::init();
 
-    println!("🚀 NodeSpace NLP Engine - Embedding Generation Example");
+    println!("NodeSpace NLP Engine - Embedding Generation Example");
 
     // Create and initialize the NLP engine
     let engine = LocalNLPEngine::new();
-    println!("📊 Initializing NLP engine...");
+    println!("Initializing NLP engine...");
     engine.initialize().await?;
 
     // Check engine status
     let status = engine.status().await;
-    println!("✅ Engine initialized successfully!");
+    println!("Engine initialized successfully!");
     println!("   Device: {:?}", status.device_type);
     if let Some(embedding_info) = status.embedding_info {
         println!("   Model: {}", embedding_info.model_name);
@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Code review for the authentication module",
     ];
 
-    println!("\n🔍 Generating embeddings for example texts...");
+    println!("\nGenerating embeddings for example texts...");
 
     // Generate individual embeddings
     for (i, text) in texts.iter().enumerate() {
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let duration = start_time.elapsed();
 
         println!(
-            "   ✓ Generated embedding with {} dimensions in {:?}",
+            "   Generated embedding with {} dimensions in {:?}",
             embedding.len(),
             duration
         );
@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Demonstrate batch processing
-    println!("\n📦 Demonstrating batch embedding generation...");
+    println!("\nDemonstrating batch embedding generation...");
 
     let start_time = std::time::Instant::now();
     let batch_embeddings = engine
@@ -64,13 +64,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let batch_duration = start_time.elapsed();
 
     println!(
-        "   ✓ Generated {} embeddings in batch in {:?}",
+        "   Generated {} embeddings in batch in {:?}",
         batch_embeddings.len(),
         batch_duration
     );
 
     // Calculate similarities between texts
-    println!("\n🔗 Calculating similarities between texts...");
+    println!("\nCalculating similarities between texts...");
 
     for i in 0..texts.len() {
         for j in (i + 1)..texts.len() {
@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Demonstrate semantic search scenario
-    println!("\n🎯 Semantic search demonstration...");
+    println!("\nSemantic search demonstration...");
 
     let query = "team meeting planning";
     let query_embedding = engine.generate_embedding(query).await?;
@@ -107,13 +107,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Show cache statistics
     let cache_stats = engine.cache_stats().await;
-    println!("\n📈 Cache Statistics:");
+    println!("\nCache Statistics:");
     println!(
         "   Cached embeddings: {}/{}",
         cache_stats.embedding_cache_size, cache_stats.embedding_cache_capacity
     );
 
-    println!("\n🎉 Example completed successfully!");
+    println!("\nExample completed successfully!");
 
     Ok(())
 }
