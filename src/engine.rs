@@ -5,10 +5,11 @@ use crate::error::NLPError;
 #[cfg(feature = "multimodal")]
 use crate::image_processing::{ImageEmbeddingGenerator, ImageMetadataExtractor};
 use crate::models::{DeviceType, NLPConfig};
+use crate::multi_level_embedding::{EmbeddingProvider, MultiLevelEmbeddingGenerator};
 use crate::surrealql::SurrealQLGenerator;
 use crate::text_generation::TextGenerator;
 use crate::utils::metrics::Timer;
-use crate::NLPEngine;
+use crate::{MultiLevelEmbeddings, NodeContext, NLPEngine};
 
 use async_trait::async_trait;
 use nodespace_core_types::{NodeSpaceError, NodeSpaceResult};
@@ -23,6 +24,7 @@ pub struct LocalNLPEngine {
     surrealql_generator: Arc<RwLock<Option<SurrealQLGenerator>>>,
     #[cfg(feature = "multimodal")]
     image_embedding_generator: Arc<RwLock<Option<ImageEmbeddingGenerator>>>,
+    multi_level_generator: Arc<RwLock<MultiLevelEmbeddingGenerator>>,
     device_type: DeviceType,
     initialized: Arc<RwLock<bool>>,
 }
@@ -49,6 +51,9 @@ impl LocalNLPEngine {
             surrealql_generator: Arc::new(RwLock::new(None)),
             #[cfg(feature = "multimodal")]
             image_embedding_generator: Arc::new(RwLock::new(None)),
+            multi_level_generator: Arc::new(RwLock::new(
+                MultiLevelEmbeddingGenerator::new(),
+            )),
             device_type,
             initialized: Arc::new(RwLock::new(false)),
         }
@@ -285,6 +290,9 @@ impl LocalNLPEngine {
             image_embedding_gen.clear_cache();
         }
 
+        // Clear multi-level embedding cache
+        self.multi_level_generator.write().await.clear_cache();
+
         Ok(())
     }
 
@@ -317,6 +325,23 @@ impl LocalNLPEngine {
             #[cfg(not(feature = "multimodal"))]
             image_embedding_cache_capacity: 0,
         }
+    }
+}
+
+/// Wrapper to provide EmbeddingProvider trait for EmbeddingGenerator
+struct EmbeddingGeneratorProvider {
+    generator: Arc<RwLock<Option<EmbeddingGenerator>>>,
+}
+
+#[async_trait]
+impl EmbeddingProvider for EmbeddingGeneratorProvider {
+    async fn generate_embedding(&self, text: &str) -> Result<Vec<f32>, NLPError> {
+        let generator = self.generator.read().await;
+        let generator = generator.as_ref().ok_or_else(|| NLPError::ModelLoading {
+            message: "Embedding generator not initialized".to_string(),
+        })?;
+
+        generator.generate_embedding(text).await
     }
 }
 
@@ -413,6 +438,67 @@ impl NLPEngine for LocalNLPEngine {
     /// Get embedding model dimensions
     fn embedding_dimensions(&self) -> usize {
         self.config.models.embedding.dimensions
+    }
+
+    /// Generate contextual embedding enhanced with relationship context
+    async fn generate_contextual_embedding(
+        &self,
+        node: &nodespace_core_types::Node,
+        context: &NodeContext,
+    ) -> NodeSpaceResult<Vec<f32>> {
+        self.ensure_initialized().await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+
+        let provider = EmbeddingGeneratorProvider {
+            generator: self.embedding_generator.clone(),
+        };
+
+        let mut multi_level_gen = self.multi_level_generator.write().await;
+        multi_level_gen
+            .generate_contextual_embedding(node, context, &provider)
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+    }
+
+    /// Generate hierarchical embedding with full path context from root
+    async fn generate_hierarchical_embedding(
+        &self,
+        node: &nodespace_core_types::Node,
+        path: &[nodespace_core_types::Node],
+    ) -> NodeSpaceResult<Vec<f32>> {
+        self.ensure_initialized().await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+
+        let provider = EmbeddingGeneratorProvider {
+            generator: self.embedding_generator.clone(),
+        };
+
+        let mut multi_level_gen = self.multi_level_generator.write().await;
+        multi_level_gen
+            .generate_hierarchical_embedding(node, path, &provider)
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+    }
+
+    /// Generate all embedding levels for a node (individual, contextual, hierarchical)
+    async fn generate_all_embeddings(
+        &self,
+        node: &nodespace_core_types::Node,
+        context: &NodeContext,
+        path: &[nodespace_core_types::Node],
+    ) -> NodeSpaceResult<MultiLevelEmbeddings> {
+        self.ensure_initialized().await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+
+        let provider = EmbeddingGeneratorProvider {
+            generator: self.embedding_generator.clone(),
+        };
+
+        let mut multi_level_gen = self.multi_level_generator.write().await;
+        multi_level_gen
+            .generate_all_embeddings(node, context, path, &provider)
+            .await
+            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
     }
 
     /// Generate vector embedding for image content (multimodal)
