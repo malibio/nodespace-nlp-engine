@@ -34,10 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Generated text ({:?}):", duration);
     println!("\"{}\"", generated_text);
 
-    // Example 2: SurrealQL generation
-    println!("\nExample 2: SurrealQL Generation");
+    // Example 2: Content Analysis and Intent Extraction
+    println!("\nExample 2: Content Analysis and Intent Extraction");
 
-    let schema_context = r#"
+    let _schema_context = r#"
     TABLE meeting {
         id: string,
         title: string,
@@ -70,15 +70,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("\nQuery {}: \"{}\"", i + 1, query);
 
         let start_time = std::time::Instant::now();
-        let surrealql = engine.generate_surrealql(query, schema_context).await?;
+        let analysis = engine.analyze_content(query, "query_intent").await?;
         let duration = start_time.elapsed();
 
-        println!("Generated SurrealQL ({:?}):", duration);
-        println!("```sql\n{}\n```", surrealql);
+        println!("Content Analysis ({:?}):", duration);
+        println!("Classification: {}", analysis.classification);
+        println!("Confidence: {:.2}", analysis.confidence);
+        if !analysis.topics.is_empty() {
+            println!("Topics: {:?}", analysis.topics);
+        }
     }
 
-    // Example 3: Entity analysis
-    println!("\nExample 3: Entity Analysis (Advanced)");
+    // Example 3: Advanced structured data extraction
+    println!("\nExample 3: Advanced Structured Data Extraction");
 
     let entity_texts = [
         "Create a meeting about Q4 budget review with finance team for next Thursday at 2 PM",
@@ -121,9 +125,17 @@ Provide a structured analysis:"#,
     for (i, query) in complex_queries.iter().enumerate() {
         println!("\nComplex Query {}: \"{}\"", i + 1, query);
 
-        let surrealql = engine.generate_surrealql(query, schema_context).await?;
-        println!("Generated SurrealQL:");
-        println!("```sql\n{}\n```", surrealql);
+        let structured_data = engine
+            .extract_structured_data(query, "search_request")
+            .await?;
+        println!("Extracted Structured Data:");
+        println!(
+            "```json\n{}\n```",
+            serde_json::to_string_pretty(&structured_data)?
+        );
+
+        let summary = engine.generate_summary(query, Some(15)).await?;
+        println!("Query Summary: {}", summary);
     }
 
     println!("\nText generation examples completed successfully!");

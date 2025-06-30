@@ -6,7 +6,6 @@ use crate::error::NLPError;
 use crate::image_processing::{ImageEmbeddingGenerator, ImageMetadataExtractor};
 use crate::models::{DeviceType, NLPConfig};
 use crate::multi_level_embedding::{EmbeddingProvider, MultiLevelEmbeddingGenerator};
-use crate::surrealql::SurrealQLGenerator;
 use crate::text_generation::TextGenerator;
 use crate::utils::metrics::Timer;
 use crate::NLPEngine;
@@ -22,7 +21,6 @@ pub struct LocalNLPEngine {
     config: NLPConfig,
     embedding_generator: Arc<RwLock<Option<EmbeddingGenerator>>>,
     text_generator: Arc<RwLock<Option<TextGenerator>>>,
-    surrealql_generator: Arc<RwLock<Option<SurrealQLGenerator>>>,
     #[cfg(feature = "multimodal")]
     image_embedding_generator: Arc<RwLock<Option<ImageEmbeddingGenerator>>>,
     multi_level_generator: Arc<RwLock<MultiLevelEmbeddingGenerator>>,
@@ -49,7 +47,6 @@ impl LocalNLPEngine {
             config,
             embedding_generator: Arc::new(RwLock::new(None)),
             text_generator: Arc::new(RwLock::new(None)),
-            surrealql_generator: Arc::new(RwLock::new(None)),
             #[cfg(feature = "multimodal")]
             image_embedding_generator: Arc::new(RwLock::new(None)),
             multi_level_generator: Arc::new(RwLock::new(MultiLevelEmbeddingGenerator::new())),
@@ -91,9 +88,6 @@ impl LocalNLPEngine {
         )?;
         text_generator.initialize().await?;
 
-        // Initialize SurrealQL generator
-        let surrealql_generator = SurrealQLGenerator::new();
-
         // Initialize image embedding generator (if multimodal feature is enabled)
         #[cfg(feature = "multimodal")]
         let image_embedding_generator = {
@@ -110,7 +104,6 @@ impl LocalNLPEngine {
         // Store the initialized components
         *self.embedding_generator.write().await = Some(embedding_generator);
         *self.text_generator.write().await = Some(text_generator);
-        *self.surrealql_generator.write().await = Some(surrealql_generator);
         #[cfg(feature = "multimodal")]
         {
             *self.image_embedding_generator.write().await = image_embedding_generator;
@@ -186,14 +179,6 @@ impl LocalNLPEngine {
         Ok(self.text_generator.clone())
     }
 
-    /// Get the SurrealQL generator (ensuring it's initialized)
-    async fn get_surrealql_generator(
-        &self,
-    ) -> Result<Arc<RwLock<Option<SurrealQLGenerator>>>, NLPError> {
-        self.ensure_initialized().await?;
-        Ok(self.surrealql_generator.clone())
-    }
-
     /// Get the image embedding generator (ensuring it's initialized)
     #[cfg(feature = "multimodal")]
     async fn get_image_embedding_generator(
@@ -222,60 +207,6 @@ impl LocalNLPEngine {
         };
 
         generator.generate_embedding(&processed_text).await
-    }
-
-    /// Generate SurrealQL with detailed options
-    pub async fn generate_surrealql_advanced(
-        &self,
-        natural_query: &str,
-        schema_context: &str,
-        safety_checks: bool,
-    ) -> Result<SurrealQLResult, NLPError> {
-        let surrealql_generator = self.get_surrealql_generator().await?;
-        let surrealql_generator = surrealql_generator.read().await;
-        let surrealql_generator =
-            surrealql_generator
-                .as_ref()
-                .ok_or_else(|| NLPError::ModelLoading {
-                    message: "SurrealQL generator not initialized".to_string(),
-                })?;
-
-        let text_generator = self.get_text_generator().await?;
-        let mut text_generator = text_generator.write().await;
-        let text_generator = text_generator
-            .as_mut()
-            .ok_or_else(|| NLPError::ModelLoading {
-                message: "Text generator not initialized".to_string(),
-            })?;
-
-        let _timer = Timer::new("advanced_surrealql_generation");
-
-        let surrealql = surrealql_generator
-            .generate_surrealql(text_generator, natural_query, schema_context, safety_checks)
-            .await?;
-
-        Ok(SurrealQLResult {
-            query: surrealql,
-            safety_checks_applied: safety_checks,
-            estimated_complexity: self.estimate_query_complexity(natural_query),
-        })
-    }
-
-    /// Estimate query complexity for performance optimization
-    fn estimate_query_complexity(&self, query: &str) -> QueryComplexity {
-        let word_count = query.split_whitespace().count();
-        let has_joins =
-            query.to_lowercase().contains("with") || query.to_lowercase().contains("related");
-        let has_aggregation =
-            query.to_lowercase().contains("count") || query.to_lowercase().contains("sum");
-
-        if word_count > 20 || has_joins || has_aggregation {
-            QueryComplexity::High
-        } else if word_count > 10 {
-            QueryComplexity::Medium
-        } else {
-            QueryComplexity::Low
-        }
     }
 
     /// Clear all caches
@@ -450,24 +381,153 @@ impl NLPEngine for LocalNLPEngine {
                 ))
             })
     }
-    /// Generate SurrealQL from natural language query
-    async fn generate_surrealql(
+    /// Extract structured data from natural language text
+    async fn extract_structured_data(
         &self,
-        natural_query: &str,
-        schema_context: &str,
-    ) -> NodeSpaceResult<String> {
-        let result = self
-            .generate_surrealql_advanced(natural_query, schema_context, true)
-            .await
-            .map_err(|e| {
-                NodeSpaceError::Processing(ProcessingError::model_error(
-                    "nlp-engine",
-                    "embedding-generator",
-                    &e.to_string(),
-                ))
-            })?;
+        text: &str,
+        schema_hint: &str,
+    ) -> NodeSpaceResult<serde_json::Value> {
+        let text_generator = self.get_text_generator().await?;
+        let mut text_generator = text_generator.write().await;
+        let text_generator = text_generator.as_mut().ok_or_else(|| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                "Text generator not initialized",
+            ))
+        })?;
 
-        Ok(result.query)
+        let prompt = format!(
+            "Extract structured data from the following text based on this schema hint: {}\n\nText: {}\n\nPlease return only valid JSON:",
+            schema_hint, text
+        );
+
+        let response = text_generator.generate_text(&prompt).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                &e.to_string(),
+            ))
+        })?;
+
+        // Try to parse the response as JSON, with fallback for stub implementation
+        match serde_json::from_str(&response) {
+            Ok(json) => Ok(json),
+            Err(_) => {
+                // Fallback: create a simple JSON structure from the response
+                let fallback_data = serde_json::json!({
+                    "extracted_text": response,
+                    "schema_hint": schema_hint,
+                    "extraction_method": "fallback_text_extraction"
+                });
+                Ok(fallback_data)
+            }
+        }
+    }
+
+    /// Generate intelligent text summarization
+    async fn generate_summary(
+        &self,
+        text: &str,
+        max_length: Option<usize>,
+    ) -> NodeSpaceResult<String> {
+        let text_generator = self.get_text_generator().await?;
+        let mut text_generator = text_generator.write().await;
+        let text_generator = text_generator.as_mut().ok_or_else(|| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                "Text generator not initialized",
+            ))
+        })?;
+
+        let length_constraint = max_length
+            .map(|len| format!(" in approximately {} words", len))
+            .unwrap_or_default();
+
+        let prompt = format!(
+            "Please provide a concise summary of the following text{}:\n\n{}\n\nSummary:",
+            length_constraint, text
+        );
+
+        text_generator.generate_text(&prompt).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                &e.to_string(),
+            ))
+        })
+    }
+
+    /// Analyze and classify content semantically
+    async fn analyze_content(
+        &self,
+        text: &str,
+        analysis_type: &str,
+    ) -> NodeSpaceResult<crate::ContentAnalysis> {
+        let text_generator = self.get_text_generator().await?;
+        let mut text_generator = text_generator.write().await;
+        let text_generator = text_generator.as_mut().ok_or_else(|| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                "Text generator not initialized",
+            ))
+        })?;
+
+        let prompt = format!(
+            "Analyze the following text for {}. Provide a JSON response with classification, confidence (0.0-1.0), topics, sentiment, and entities:\n\nText: {}\n\nAnalysis:",
+            analysis_type, text
+        );
+
+        let start_time = std::time::Instant::now();
+        let response = text_generator.generate_text(&prompt).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                &e.to_string(),
+            ))
+        })?;
+        let processing_time = start_time.elapsed().as_millis() as u64;
+
+        // Parse response or provide fallback analysis
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
+            Ok(crate::ContentAnalysis {
+                classification: parsed["classification"]
+                    .as_str()
+                    .unwrap_or("general")
+                    .to_string(),
+                confidence: parsed["confidence"].as_f64().unwrap_or(0.7) as f32,
+                topics: parsed["topics"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                sentiment: parsed["sentiment"].as_str().map(|s| s.to_string()),
+                entities: parsed["entities"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                processing_time_ms: processing_time,
+            })
+        } else {
+            // Fallback: simple rule-based analysis
+            Ok(crate::ContentAnalysis {
+                classification: analysis_type.to_string(),
+                confidence: 0.6,
+                topics: Vec::new(),
+                sentiment: None,
+                entities: Vec::new(),
+                processing_time_ms: processing_time,
+            })
+        }
     }
 
     /// Get embedding model dimensions
@@ -722,22 +782,6 @@ pub struct EmbeddingInfo {
     pub model_name: String,
     pub dimensions: usize,
     pub cache_stats: (usize, usize), // (size, capacity)
-}
-
-/// SurrealQL generation result
-#[derive(Debug, Clone)]
-pub struct SurrealQLResult {
-    pub query: String,
-    pub safety_checks_applied: bool,
-    pub estimated_complexity: QueryComplexity,
-}
-
-/// Query complexity estimation
-#[derive(Debug, Clone, PartialEq)]
-pub enum QueryComplexity {
-    Low,
-    Medium,
-    High,
 }
 
 /// Cache statistics

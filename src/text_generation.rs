@@ -272,10 +272,10 @@ impl TextGenerator {
             "A productive meeting involves clear agenda items, active participation from all attendees, and defined action items with assigned owners and deadlines."
         } else if prompt.to_lowercase().contains("task") {
             "Effective task management requires clear descriptions, realistic deadlines, appropriate priority levels, and regular progress tracking."
-        } else if prompt.to_lowercase().contains("surrealql")
-            || prompt.to_lowercase().contains("select")
+        } else if prompt.to_lowercase().contains("data")
+            || prompt.to_lowercase().contains("analyze")
         {
-            "SELECT * FROM meeting WHERE date > time::now() - 1w ORDER BY date DESC LIMIT 10"
+            "Data analysis involves examining datasets to discover patterns, trends, and insights that can inform decision-making."
         } else if prompt.to_lowercase().contains("create")
             && prompt.to_lowercase().contains("entity")
         {
@@ -352,38 +352,6 @@ impl TextGenerator {
             tags: vec!["auto-generated".to_string()],
             confidence: 0.8,
         })
-    }
-
-    /// Generate SurrealQL from natural language with schema context (STUB)
-    pub async fn generate_surrealql(
-        &self,
-        query: &str,
-        _schema_context: &str,
-    ) -> Result<String, NLPError> {
-        if !self.initialized {
-            return Err(NLPError::ModelLoading {
-                message: "Model not initialized".to_string(),
-            });
-        }
-
-        // STUB: Generate simple SurrealQL based on query content
-        let surrealql = if query.to_lowercase().contains("find")
-            || query.to_lowercase().contains("get")
-        {
-            if query.to_lowercase().contains("meeting") {
-                "SELECT * FROM meeting WHERE date > time::now() - 1w ORDER BY date DESC LIMIT 10"
-            } else if query.to_lowercase().contains("task") {
-                "SELECT * FROM task WHERE status != 'completed' ORDER BY priority DESC LIMIT 10"
-            } else {
-                "SELECT * FROM entity ORDER BY created_at DESC LIMIT 10"
-            }
-        } else if query.to_lowercase().contains("create") {
-            "CREATE meeting SET title = 'New Meeting', date = time::now(), status = 'active'"
-        } else {
-            "SELECT * FROM entity LIMIT 10"
-        };
-
-        Ok(surrealql.to_string())
     }
 
     /// Analyze query intent for natural language processing (STUB)

@@ -23,9 +23,6 @@ pub enum NLPError {
     #[error("Text generation failed: {message}")]
     TextGeneration { message: String },
 
-    #[error("SurrealQL generation failed: {message}")]
-    SurrealQLGeneration { message: String },
-
     #[error("Configuration error: {message}")]
     Configuration { message: String },
 

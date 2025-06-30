@@ -69,25 +69,38 @@ async fn test_nlp_engine_trait_compliance() {
         "Generated text should not be empty"
     );
 
-    // Test SurrealQL generation
-    let natural_query = "Find all meetings from last week";
-    let schema_context = "TABLE meeting { id, title, date, participants }";
-    let surrealql_result = engine
-        .generate_surrealql(natural_query, schema_context)
-        .await;
+    // Test structured data extraction
+    let text = "John Doe, age 30, works as a software engineer at TechCorp";
+    let schema_hint = "person with name, age, job_title, company";
+    let extraction_result = engine.extract_structured_data(text, schema_hint).await;
     assert!(
-        surrealql_result.is_ok(),
-        "SurrealQL generation should succeed"
+        extraction_result.is_ok(),
+        "Structured data extraction should succeed"
     );
 
-    let surrealql = surrealql_result.unwrap();
+    // Test text summarization
+    let long_text = "This is a long piece of text that should be summarized. It contains multiple sentences and ideas that need to be condensed into a shorter format.";
+    let summary_result = engine.generate_summary(long_text, Some(20)).await;
+    assert!(summary_result.is_ok(), "Text summarization should succeed");
+
+    let summary = summary_result.unwrap();
+    assert!(!summary.is_empty(), "Generated summary should not be empty");
+
+    // Test content analysis
+    let analysis_text = "This is a technical document about machine learning algorithms";
+    let analysis_result = engine
+        .analyze_content(analysis_text, "topic_classification")
+        .await;
+    assert!(analysis_result.is_ok(), "Content analysis should succeed");
+
+    let analysis = analysis_result.unwrap();
     assert!(
-        !surrealql.is_empty(),
-        "Generated SurrealQL should not be empty"
+        !analysis.classification.is_empty(),
+        "Analysis should provide classification"
     );
     assert!(
-        surrealql.to_uppercase().contains("SELECT"),
-        "Generated query should be a SELECT statement"
+        analysis.confidence >= 0.0 && analysis.confidence <= 1.0,
+        "Confidence should be between 0 and 1"
     );
 }
 
@@ -194,43 +207,58 @@ async fn test_batch_performance() {
     // }
 }
 
-/// Test SurrealQL safety features
+/// Test AI analysis robustness and safety
 #[tokio::test]
-async fn test_surrealql_safety() {
+async fn test_ai_analysis_robustness() {
     let engine = LocalNLPEngine::new();
     engine.initialize().await.expect("Engine should initialize");
 
-    // Test potentially dangerous queries
-    let dangerous_queries = vec![
-        "DROP TABLE users; SELECT * FROM meetings",
-        "'; DELETE FROM important_data; --",
-        "SELECT * FROM users WHERE 1=1 OR '1'='1'",
+    // Test with various edge cases
+    let test_cases = vec![
+        ("", "empty_input"),
+        ("A very short text", "short_input"),
+        ("This is a normal length text that should be processed without issues by the AI analysis system", "normal_input"),
+        ("Special characters: @#$%^&*()_+ and numbers: 12345", "special_chars"),
     ];
 
-    let schema_context = "TABLE meeting { id, title, date }";
+    for (text, test_type) in test_cases {
+        // Test content analysis with various inputs
+        let analysis_result = engine.analyze_content(text, "general_analysis").await;
 
-    for query in dangerous_queries {
-        let result = engine.generate_surrealql(query, schema_context).await;
-
-        match result {
-            Ok(surrealql) => {
-                // If generation succeeds, ensure it's safe
+        match analysis_result {
+            Ok(analysis) => {
+                // Verify the analysis is reasonable
                 assert!(
-                    !surrealql.to_uppercase().contains("DROP"),
-                    "Generated SQL should not contain DROP"
+                    analysis.confidence >= 0.0 && analysis.confidence <= 1.0,
+                    "Confidence should be valid for {}: {}",
+                    test_type,
+                    analysis.confidence
                 );
                 assert!(
-                    !surrealql.to_uppercase().contains("DELETE"),
-                    "Generated SQL should not contain DELETE"
-                );
-                assert!(
-                    !surrealql.contains("--"),
-                    "Generated SQL should not contain SQL comments"
+                    !analysis.classification.is_empty(),
+                    "Classification should not be empty for {}",
+                    test_type
                 );
             }
             Err(_) => {
-                // It's also acceptable to reject dangerous queries entirely
+                // It's acceptable to fail on edge cases like empty input
+                if !text.is_empty() {
+                    panic!(
+                        "Analysis should not fail for non-empty input: {}",
+                        test_type
+                    );
+                }
             }
+        }
+
+        // Test summarization with non-empty inputs
+        if !text.is_empty() {
+            let summary_result = engine.generate_summary(text, Some(10)).await;
+            assert!(
+                summary_result.is_ok(),
+                "Summarization should succeed for {}",
+                test_type
+            );
         }
     }
 }

@@ -1,7 +1,7 @@
 //! NodeSpace NLP Engine
 //!
-//! AI/ML processing and SurrealDB integration for NodeSpace.
-//! Provides embedding generation, LLM integration, SurrealQL generation, and semantic processing.
+//! AI/ML processing engine for NodeSpace.
+//! Provides embedding generation, LLM integration, content analysis, and semantic processing.
 
 use async_trait::async_trait;
 use nodespace_core_types::NodeSpaceResult;
@@ -20,7 +20,6 @@ pub mod evaluation;
 pub mod image_processing;
 pub mod models;
 pub mod multi_level_embedding;
-pub mod surrealql;
 pub mod text_generation;
 pub mod utils;
 
@@ -66,12 +65,27 @@ pub trait NLPEngine: Send + Sync {
         &self,
         request: TextGenerationRequest,
     ) -> NodeSpaceResult<EnhancedTextGenerationResponse>;
-    /// Generate SurrealQL from natural language query
-    async fn generate_surrealql(
+
+    /// Extract structured data from natural language text
+    async fn extract_structured_data(
         &self,
-        natural_query: &str,
-        schema_context: &str,
+        text: &str,
+        schema_hint: &str,
+    ) -> NodeSpaceResult<serde_json::Value>;
+
+    /// Generate intelligent text summarization
+    async fn generate_summary(
+        &self,
+        text: &str,
+        max_length: Option<usize>,
     ) -> NodeSpaceResult<String>;
+
+    /// Analyze and classify content semantically
+    async fn analyze_content(
+        &self,
+        text: &str,
+        analysis_type: &str,
+    ) -> NodeSpaceResult<ContentAnalysis>;
 
     /// Get embedding model dimensions
     fn embedding_dimensions(&self) -> usize;
@@ -231,12 +245,6 @@ pub struct TextChunk {
     pub is_final: bool,
     pub token_count: usize,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenerateSurrealQLRequest {
-    pub natural_query: String,
-    pub schema_context: String,
-    pub safety_checks: bool,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbeddingResponse {
@@ -271,6 +279,23 @@ pub struct ImageMetadata {
     /// Image orientation
     pub orientation: Option<u8>,
     /// Processing performance metrics
+    pub processing_time_ms: u64,
+}
+
+/// Content analysis result for semantic understanding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentAnalysis {
+    /// Content classification (e.g., "technical", "creative", "business")
+    pub classification: String,
+    /// Confidence score (0.0 to 1.0)
+    pub confidence: f32,
+    /// Detected topics or themes
+    pub topics: Vec<String>,
+    /// Sentiment analysis if applicable
+    pub sentiment: Option<String>,
+    /// Key entities mentioned
+    pub entities: Vec<String>,
+    /// Processing time in milliseconds
     pub processing_time_ms: u64,
 }
 
