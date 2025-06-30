@@ -7,7 +7,10 @@
 
 use crate::error::NLPError;
 use crate::utils::metrics::Timer;
-use crate::{ContextStrategy, EmbeddingGenerationMetrics, MultiLevelEmbeddings, NodeContext};
+
+use nodespace_core_types::{
+    ContextStrategy, EmbeddingGenerationMetrics, MultiLevelEmbeddings, NodeContext,
+};
 
 use nodespace_core_types::Node;
 use std::collections::HashMap;

@@ -9,7 +9,8 @@ use crate::multi_level_embedding::{EmbeddingProvider, MultiLevelEmbeddingGenerat
 use crate::surrealql::SurrealQLGenerator;
 use crate::text_generation::TextGenerator;
 use crate::utils::metrics::Timer;
-use crate::{MultiLevelEmbeddings, NLPEngine, NodeContext};
+use crate::NLPEngine;
+use nodespace_core_types::{MultiLevelEmbeddings, NodeContext};
 
 use async_trait::async_trait;
 use nodespace_core_types::{NodeSpaceError, NodeSpaceResult, ProcessingError};
