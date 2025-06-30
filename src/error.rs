@@ -59,6 +59,23 @@ pub enum NLPError {
 
 impl From<NLPError> for nodespace_core_types::NodeSpaceError {
     fn from(err: NLPError) -> Self {
-        nodespace_core_types::NodeSpaceError::ProcessingError(err.to_string())
+        use nodespace_core_types::{NodeSpaceError, ProcessingError};
+
+        match err {
+            NLPError::ModelLoading { message } => NodeSpaceError::Processing(
+                ProcessingError::model_error("nlp-engine", "unknown", &message),
+            ),
+            NLPError::EmbeddingGeneration { message } => {
+                NodeSpaceError::Processing(ProcessingError::embedding_failed(&message, "text"))
+            }
+            NLPError::TextGeneration { message } => NodeSpaceError::Processing(
+                ProcessingError::model_error("nlp-engine", "text-generator", &message),
+            ),
+            _ => NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "unknown",
+                &err.to_string(),
+            )),
+        }
     }
 }

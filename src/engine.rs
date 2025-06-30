@@ -9,10 +9,10 @@ use crate::multi_level_embedding::{EmbeddingProvider, MultiLevelEmbeddingGenerat
 use crate::surrealql::SurrealQLGenerator;
 use crate::text_generation::TextGenerator;
 use crate::utils::metrics::Timer;
-use crate::{MultiLevelEmbeddings, NodeContext, NLPEngine};
+use crate::{MultiLevelEmbeddings, NLPEngine, NodeContext};
 
 use async_trait::async_trait;
-use nodespace_core_types::{NodeSpaceError, NodeSpaceResult};
+use nodespace_core_types::{NodeSpaceError, NodeSpaceResult, ProcessingError};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -51,9 +51,7 @@ impl LocalNLPEngine {
             surrealql_generator: Arc::new(RwLock::new(None)),
             #[cfg(feature = "multimodal")]
             image_embedding_generator: Arc::new(RwLock::new(None)),
-            multi_level_generator: Arc::new(RwLock::new(
-                MultiLevelEmbeddingGenerator::new(),
-            )),
+            multi_level_generator: Arc::new(RwLock::new(MultiLevelEmbeddingGenerator::new())),
             device_type,
             initialized: Arc::new(RwLock::new(false)),
         }
@@ -349,56 +347,74 @@ impl EmbeddingProvider for EmbeddingGeneratorProvider {
 impl NLPEngine for LocalNLPEngine {
     /// Generate vector embedding for text content
     async fn generate_embedding(&self, text: &str) -> NodeSpaceResult<Vec<f32>> {
-        let generator = self
-            .get_embedding_generator()
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        let generator = self.get_embedding_generator().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let generator = generator.read().await;
         let generator = generator.as_ref().ok_or_else(|| {
-            NodeSpaceError::ProcessingError("Embedding generator not initialized".to_string())
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                "Embedding generator not initialized",
+            ))
         })?;
 
-        generator
-            .generate_embedding(text)
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+        generator.generate_embedding(text).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
+        })
     }
 
     /// Generate embeddings for multiple texts (batch operation)
     async fn batch_embeddings(&self, texts: &[String]) -> NodeSpaceResult<Vec<Vec<f32>>> {
-        let generator = self
-            .get_embedding_generator()
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        let generator = self.get_embedding_generator().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let generator = generator.read().await;
         let generator = generator.as_ref().ok_or_else(|| {
-            NodeSpaceError::ProcessingError("Embedding generator not initialized".to_string())
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                "Embedding generator not initialized",
+            ))
         })?;
 
-        generator
-            .batch_embeddings(texts)
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+        generator.batch_embeddings(texts).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
+        })
     }
 
     /// Generate text using the local LLM (Mistral.rs)
     async fn generate_text(&self, prompt: &str) -> NodeSpaceResult<String> {
-        let generator = self
-            .get_text_generator()
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        let generator = self.get_text_generator().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let mut generator = generator.write().await;
         let generator = generator.as_mut().ok_or_else(|| {
-            NodeSpaceError::ProcessingError("Text generator not initialized".to_string())
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                "Text generator not initialized",
+            ))
         })?;
 
-        generator
-            .generate_text(prompt)
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+        generator.generate_text(prompt).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
+        })
     }
 
     /// Enhanced text generation with RAG context support
@@ -406,20 +422,32 @@ impl NLPEngine for LocalNLPEngine {
         &self,
         request: crate::TextGenerationRequest,
     ) -> NodeSpaceResult<crate::EnhancedTextGenerationResponse> {
-        let generator = self
-            .get_text_generator()
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        let generator = self.get_text_generator().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let mut generator = generator.write().await;
         let generator = generator.as_mut().ok_or_else(|| {
-            NodeSpaceError::ProcessingError("Text generator not initialized".to_string())
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "text-generator",
+                "Text generator not initialized",
+            ))
         })?;
 
         generator
             .generate_text_enhanced(request)
             .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+            .map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                    &e.to_string(),
+                    "text",
+                ))
+            })
     }
     /// Generate SurrealQL from natural language query
     async fn generate_surrealql(
@@ -430,7 +458,13 @@ impl NLPEngine for LocalNLPEngine {
         let result = self
             .generate_surrealql_advanced(natural_query, schema_context, true)
             .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+            .map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::model_error(
+                    "nlp-engine",
+                    "embedding-generator",
+                    &e.to_string(),
+                ))
+            })?;
 
         Ok(result.query)
     }
@@ -446,8 +480,13 @@ impl NLPEngine for LocalNLPEngine {
         node: &nodespace_core_types::Node,
         context: &NodeContext,
     ) -> NodeSpaceResult<Vec<f32>> {
-        self.ensure_initialized().await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        self.ensure_initialized().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let provider = EmbeddingGeneratorProvider {
             generator: self.embedding_generator.clone(),
@@ -457,7 +496,12 @@ impl NLPEngine for LocalNLPEngine {
         multi_level_gen
             .generate_contextual_embedding(node, context, &provider)
             .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+            .map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                    &e.to_string(),
+                    "text",
+                ))
+            })
     }
 
     /// Generate hierarchical embedding with full path context from root
@@ -466,8 +510,13 @@ impl NLPEngine for LocalNLPEngine {
         node: &nodespace_core_types::Node,
         path: &[nodespace_core_types::Node],
     ) -> NodeSpaceResult<Vec<f32>> {
-        self.ensure_initialized().await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        self.ensure_initialized().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let provider = EmbeddingGeneratorProvider {
             generator: self.embedding_generator.clone(),
@@ -477,7 +526,12 @@ impl NLPEngine for LocalNLPEngine {
         multi_level_gen
             .generate_hierarchical_embedding(node, path, &provider)
             .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+            .map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                    &e.to_string(),
+                    "text",
+                ))
+            })
     }
 
     /// Generate all embedding levels for a node (individual, contextual, hierarchical)
@@ -487,8 +541,13 @@ impl NLPEngine for LocalNLPEngine {
         context: &NodeContext,
         path: &[nodespace_core_types::Node],
     ) -> NodeSpaceResult<MultiLevelEmbeddings> {
-        self.ensure_initialized().await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        self.ensure_initialized().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let provider = EmbeddingGeneratorProvider {
             generator: self.embedding_generator.clone(),
@@ -498,29 +557,37 @@ impl NLPEngine for LocalNLPEngine {
         multi_level_gen
             .generate_all_embeddings(node, context, path, &provider)
             .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+            .map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                    &e.to_string(),
+                    "text",
+                ))
+            })
     }
 
     /// Generate vector embedding for image content (multimodal)
     #[cfg(feature = "multimodal")]
     async fn generate_image_embedding(&self, image_data: &[u8]) -> NodeSpaceResult<Vec<f32>> {
-        let generator = self
-            .get_image_embedding_generator()
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))?;
+        let generator = self.get_image_embedding_generator().await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "embedding-generator",
+                &e.to_string(),
+            ))
+        })?;
 
         let generator = generator.read().await;
         let generator = generator.as_ref().ok_or_else(|| {
-            NodeSpaceError::ProcessingError(
-                "Image embedding generator not available (multimodal models failed to load)"
-                    .to_string(),
-            )
+            NodeSpaceError::Processing(ProcessingError::model_error(
+                "nlp-engine",
+                "image-embedding-generator",
+                "Image embedding generator not available (multimodal models failed to load)",
+            ))
         })?;
 
-        generator
-            .generate_embedding(image_data)
-            .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+        generator.generate_embedding(image_data).await.map_err(|e| {
+            NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
+        })
     }
 
     /// Extract comprehensive metadata from image
@@ -531,7 +598,12 @@ impl NLPEngine for LocalNLPEngine {
     ) -> NodeSpaceResult<crate::ImageMetadata> {
         ImageMetadataExtractor::extract_metadata(image_data)
             .await
-            .map_err(|e| NodeSpaceError::ProcessingError(e.to_string()))
+            .map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                    &e.to_string(),
+                    "text",
+                ))
+            })
     }
 
     /// Generate multimodal response with text and image understanding

@@ -77,7 +77,7 @@ pub trait NLPEngine: Send + Sync {
     fn embedding_dimensions(&self) -> usize;
 
     // NEW: Multi-level embedding methods
-    
+
     /// Generate contextual embedding enhanced with relationship context
     async fn generate_contextual_embedding(
         &self,
@@ -386,7 +386,7 @@ impl Default for ContextStrategy {
 }
 
 /// Node context information for contextual embedding generation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NodeContext {
     /// Parent node for hierarchical context
     pub parent: Option<nodespace_core_types::Node>,
@@ -402,20 +402,6 @@ pub struct NodeContext {
     pub related_nodes: Vec<nodespace_core_types::Node>,
     /// Strategy to use for context generation
     pub strategy: ContextStrategy,
-}
-
-impl Default for NodeContext {
-    fn default() -> Self {
-        Self {
-            parent: None,
-            previous_sibling: None,
-            next_sibling: None,
-            siblings: Vec::new(),
-            mentions: Vec::new(),
-            related_nodes: Vec::new(),
-            strategy: ContextStrategy::default(),
-        }
-    }
 }
 
 impl NodeContext {
@@ -534,7 +520,7 @@ impl MultiLevelEmbeddings {
 }
 
 /// Performance metrics for embedding generation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EmbeddingGenerationMetrics {
     /// Time taken for individual embedding generation (ms)
     pub individual_time_ms: u64,
@@ -552,19 +538,4 @@ pub struct EmbeddingGenerationMetrics {
     pub cache_hits: u8,
     /// Cache misses during generation
     pub cache_misses: u8,
-}
-
-impl Default for EmbeddingGenerationMetrics {
-    fn default() -> Self {
-        Self {
-            individual_time_ms: 0,
-            contextual_time_ms: None,
-            hierarchical_time_ms: None,
-            total_time_ms: 0,
-            context_length: None,
-            path_depth: None,
-            cache_hits: 0,
-            cache_misses: 0,
-        }
-    }
 }

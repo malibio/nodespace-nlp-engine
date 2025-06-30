@@ -7,14 +7,13 @@
 
 use crate::error::NLPError;
 use crate::utils::metrics::Timer;
-use crate::{
-    ContextStrategy, EmbeddingGenerationMetrics, MultiLevelEmbeddings, NodeContext,
-};
+use crate::{ContextStrategy, EmbeddingGenerationMetrics, MultiLevelEmbeddings, NodeContext};
 
 use nodespace_core_types::Node;
 use std::collections::HashMap;
 
 /// Multi-level embedding generator that creates contextual and hierarchical embeddings
+#[derive(Default)]
 pub struct MultiLevelEmbeddingGenerator {
     /// Cache for generated context strings to avoid regeneration
     context_cache: HashMap<String, String>,
@@ -23,9 +22,7 @@ pub struct MultiLevelEmbeddingGenerator {
 impl MultiLevelEmbeddingGenerator {
     /// Create a new multi-level embedding generator
     pub fn new() -> Self {
-        Self {
-            context_cache: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Generate contextual embedding with relationship context
@@ -42,7 +39,9 @@ impl MultiLevelEmbeddingGenerator {
             ContextStrategy::RuleBased => self.generate_rule_based_context(node, context)?,
             ContextStrategy::Phi4Enhanced => {
                 // TODO: Implement Phi-4 enhanced context generation
-                tracing::warn!("Phi4Enhanced strategy not yet implemented, falling back to RuleBased");
+                tracing::warn!(
+                    "Phi4Enhanced strategy not yet implemented, falling back to RuleBased"
+                );
                 self.generate_rule_based_context(node, context)?
             }
             ContextStrategy::Adaptive => {
@@ -52,7 +51,10 @@ impl MultiLevelEmbeddingGenerator {
             }
         };
 
-        tracing::debug!("Generated contextual text (length: {})", contextual_text.len());
+        tracing::debug!(
+            "Generated contextual text (length: {})",
+            contextual_text.len()
+        );
 
         // Generate embedding for the contextual text
         base_generator.generate_embedding(&contextual_text).await
@@ -217,7 +219,11 @@ impl MultiLevelEmbeddingGenerator {
     }
 
     /// Generate hierarchical context by traversing from root to current node
-    fn generate_hierarchical_context(&mut self, node: &Node, path: &[Node]) -> Result<String, NLPError> {
+    fn generate_hierarchical_context(
+        &mut self,
+        node: &Node,
+        path: &[Node],
+    ) -> Result<String, NLPError> {
         let mut hierarchical_parts = Vec::new();
 
         // Add path context from root to parent
@@ -230,7 +236,7 @@ impl MultiLevelEmbeddingGenerator {
                 3 => "Level 3",
                 _ => "Deep Level",
             };
-            
+
             // Truncate path nodes to avoid context explosion
             let truncated_text = truncate_text(&node_text, 150);
             hierarchical_parts.push(format!("{}: {}", prefix, truncated_text));
@@ -361,12 +367,12 @@ mod tests {
         let empty_context = NodeContext::default();
         assert!(!has_context(&empty_context));
 
-        let context_with_parent = NodeContext::default()
-            .with_parent(Node::new(json!({"text": "Parent node"})));
+        let context_with_parent =
+            NodeContext::default().with_parent(Node::new(json!({"text": "Parent node"})));
         assert!(has_context(&context_with_parent));
 
-        let context_with_mentions = NodeContext::default()
-            .with_mentions(vec![Node::new(json!({"text": "Mention"}))]);
+        let context_with_mentions =
+            NodeContext::default().with_mentions(vec![Node::new(json!({"text": "Mention"}))]);
         assert!(has_context(&context_with_mentions));
     }
 
@@ -404,9 +410,10 @@ mod tests {
         let parent = Node::new(json!({"text": "Parent content"}));
         let sibling = Node::new(json!({"text": "Sibling content"}));
 
-        let context = NodeContext::default()
-            .with_parent(parent)
-            .with_siblings(Some(sibling), None, vec![]);
+        let context =
+            NodeContext::default()
+                .with_parent(parent)
+                .with_siblings(Some(sibling), None, vec![]);
 
         let embedding = generator
             .generate_contextual_embedding(&node, &context, &provider)
