@@ -2,7 +2,7 @@
 name = "nodespace-nlp-engine"
 version = "0.1.0"
 edition = "2021"
-description = "AI/ML processing and SurrealDB integration for NodeSpace"
+description = "AI/ML processing and LanceDB integration for NodeSpace"
 license = "MIT"
 repository = "https://github.com/malibio/nodespace-nlp-engine"
 
