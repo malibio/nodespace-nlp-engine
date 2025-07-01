@@ -121,8 +121,7 @@ The engine supports automatic device detection (CPU/CUDA/Metal) and lazy model l
 
 ### Vector Database Integration
 
-**Current**: SurrealDB integration for basic vector operations
-**Target**: LanceDB for optimized vector storage and retrieval
+**Current**: LanceDB integration for optimized vector storage and retrieval
 
 The engine is designed for efficient vector operations:
 - Embeddings stored in optimized columnar format
@@ -196,7 +195,7 @@ See [Multimodal Evaluation Strategy](docs/multimodal-evaluation-strategy.md) for
 
 This is part of the NodeSpace distributed system architecture:
 1. `nodespace-core-types` - Shared interfaces and data structures
-2. `nodespace-data-store` - SurrealDB entity storage + future LanceDB integration
+2. `nodespace-data-store` - LanceDB vector storage
 3. **`nodespace-nlp-engine`** - Multimodal AI/ML processing layer (this repository)
 4. `nodespace-workflow-engine` - Automation and events
 5. `nodespace-core-logic` - Business logic orchestration

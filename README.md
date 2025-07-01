@@ -89,7 +89,7 @@ let vqa_response = engine.answer_image_question(&image_bytes, "What do you see?"
 Part of the [NodeSpace system architecture](../nodespace-system-design/README.md):
 
 1. `nodespace-core-types` - Shared data structures and interfaces
-2. `nodespace-data-store` - SurrealDB-based entity storage with graph relationships  
+2. `nodespace-data-store` - LanceDB-based vector storage with semantic relationships  
 3. **`nodespace-nlp-engine`** ← **You are here** (Multimodal AI + vector storage)
 4. `nodespace-workflow-engine` - Automation and event processing
 5. `nodespace-core-logic` - Business logic orchestration

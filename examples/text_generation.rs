@@ -1,4 +1,4 @@
-//! Example demonstrating text generation and SurrealQL generation
+//! Example demonstrating text generation capabilities
 
 use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 
