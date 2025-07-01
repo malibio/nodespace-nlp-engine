@@ -191,12 +191,8 @@ async fn test_batch_performance() {
     }
     let individual_duration = start_time.elapsed();
 
-    println!("Batch processing took: {:?}", batch_duration);
-    println!("Individual processing took: {:?}", individual_duration);
-
     // Batch processing should be faster or at least not significantly slower
     // Note: For stub implementations, this test is relaxed since we're not doing real ML processing
-    println!("Batch vs Individual processing comparison - this is expected to vary in stub implementation");
 
     // For real ML implementations, batch processing should be more efficient
     // if texts.len() > 5 {
@@ -330,10 +326,6 @@ async fn test_caching() {
     let second_duration = start_time.elapsed();
 
     // Second call should be faster (cached)
-    println!(
-        "First generation: {:?}, Second generation: {:?}",
-        first_duration, second_duration
-    );
 
     // Get cache stats
     let cache_stats = engine.cache_stats().await;
@@ -601,8 +593,7 @@ async fn test_smart_link_injection() {
         "Should contain nodespace:// link with correct ID"
     );
 
-    println!("Original: {}", original_content);
-    println!("Enhanced: {}", enhanced_content);
+    // Content enhancement verified
 }
 
 /// Test link type classification
