@@ -341,15 +341,15 @@ mod tests {
 
     #[test]
     fn test_extract_node_text() {
-        let node = Node::new(json!({"text": "Hello, world!"}));
+        let node = Node::new("text".to_string(), json!({"text": "Hello, world!"}));
         let extracted = extract_node_text(&node).unwrap();
         assert_eq!(extracted, "Hello, world!");
 
-        let node = Node::new(json!({"content": "Different field"}));
+        let node = Node::new("text".to_string(), json!({"content": "Different field"}));
         let extracted = extract_node_text(&node).unwrap();
         assert_eq!(extracted, "Different field");
 
-        let node = Node::new(json!({"title": "Node Title"}));
+        let node = Node::new("text".to_string(), json!({"title": "Node Title"}));
         let extracted = extract_node_text(&node).unwrap();
         assert_eq!(extracted, "Node Title");
     }
@@ -371,11 +371,11 @@ mod tests {
         assert!(!has_context(&empty_context));
 
         let context_with_parent =
-            NodeContext::default().with_parent(Node::new(json!({"text": "Parent node"})));
+            NodeContext::default().with_parent(Node::new("text".to_string(), json!({"text": "Parent node"})));
         assert!(has_context(&context_with_parent));
 
         let context_with_mentions =
-            NodeContext::default().with_mentions(vec![Node::new(json!({"text": "Mention"}))]);
+            NodeContext::default().with_mentions(vec![Node::new("text".to_string(), json!({"text": "Mention"}))]);
         assert!(has_context(&context_with_mentions));
     }
 
@@ -384,13 +384,13 @@ mod tests {
         let mut generator = MultiLevelEmbeddingGenerator::new();
         let provider = MockEmbeddingProvider;
 
-        let node = Node::new(json!({"text": "Current node content"}));
-        let parent = Node::new(json!({"text": "Parent node content"}));
+        let node = Node::new("text".to_string(), json!({"text": "Current node content"}));
+        let parent = Node::new("text".to_string(), json!({"text": "Parent node content"}));
         let path = vec![parent.clone()];
 
         let context = NodeContext::default()
             .with_parent(parent)
-            .with_mentions(vec![Node::new(json!({"text": "Reference node"}))]);
+            .with_mentions(vec![Node::new("text".to_string(), json!({"text": "Reference node"}))]);
 
         let embeddings = generator
             .generate_all_embeddings(&node, &context, &path, &provider)
@@ -409,9 +409,9 @@ mod tests {
         let mut generator = MultiLevelEmbeddingGenerator::new();
         let provider = MockEmbeddingProvider;
 
-        let node = Node::new(json!({"text": "Main content"}));
-        let parent = Node::new(json!({"text": "Parent content"}));
-        let sibling = Node::new(json!({"text": "Sibling content"}));
+        let node = Node::new("text".to_string(), json!({"text": "Main content"}));
+        let parent = Node::new("text".to_string(), json!({"text": "Parent content"}));
+        let sibling = Node::new("text".to_string(), json!({"text": "Sibling content"}));
 
         let context =
             NodeContext::default()
@@ -431,9 +431,9 @@ mod tests {
         let mut generator = MultiLevelEmbeddingGenerator::new();
         let provider = MockEmbeddingProvider;
 
-        let node = Node::new(json!({"text": "Leaf node"}));
-        let root = Node::new(json!({"text": "Root node"}));
-        let middle = Node::new(json!({"text": "Middle node"}));
+        let node = Node::new("text".to_string(), json!({"text": "Leaf node"}));
+        let root = Node::new("text".to_string(), json!({"text": "Root node"}));
+        let middle = Node::new("text".to_string(), json!({"text": "Middle node"}));
         let path = vec![root, middle];
 
         let embedding = generator

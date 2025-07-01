@@ -177,7 +177,7 @@ async fn test_batch_performance() {
 
     let start_time = std::time::Instant::now();
     let batch_result = engine.batch_embeddings(&texts).await;
-    let batch_duration = start_time.elapsed();
+    let _batch_duration = start_time.elapsed();
 
     assert!(batch_result.is_ok(), "Batch processing should succeed");
 
@@ -189,7 +189,7 @@ async fn test_batch_performance() {
             .await
             .expect("Individual embedding should succeed");
     }
-    let individual_duration = start_time.elapsed();
+    let _individual_duration = start_time.elapsed();
 
     // Batch processing should be faster or at least not significantly slower
     // Note: For stub implementations, this test is relaxed since we're not doing real ML processing
@@ -315,7 +315,7 @@ async fn test_caching() {
         .generate_embedding(text)
         .await
         .expect("First embedding should succeed");
-    let first_duration = start_time.elapsed();
+    let _first_duration = start_time.elapsed();
 
     // Generate same embedding again (should use cache)
     let start_time = std::time::Instant::now();
@@ -323,7 +323,7 @@ async fn test_caching() {
         .generate_embedding(text)
         .await
         .expect("Second embedding should succeed");
-    let second_duration = start_time.elapsed();
+    let _second_duration = start_time.elapsed();
 
     // Second call should be faster (cached)
 
