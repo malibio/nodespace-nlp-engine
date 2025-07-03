@@ -22,13 +22,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n✅ NS-126 Implementation Verification Complete!");
     println!("🎉 Real Ollama HTTP client successfully replaces ONNX text generation");
-    
+
     Ok(())
 }
 
 /// Test direct Ollama HTTP client functionality
 async fn test_direct_ollama_client() -> Result<(), Box<dyn std::error::Error>> {
-    use nodespace_nlp_engine::{OllamaTextGenerator, OllamaConfig};
+    use nodespace_nlp_engine::{OllamaConfig, OllamaTextGenerator};
 
     // Create Ollama configuration for gemma3:12b
     let config = OllamaConfig {
@@ -47,33 +47,37 @@ async fn test_direct_ollama_client() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create and initialize Ollama client
     let mut ollama_client = OllamaTextGenerator::new(config)?;
-    
+
     let start_time = Instant::now();
     ollama_client.initialize().await?;
     let init_duration = start_time.elapsed();
-    
+
     println!("   ✅ Ollama client initialized ({:?})", init_duration);
 
     // Test text generation
     let prompt = "Explain what makes Rust memory-safe in one sentence:";
     println!("   Prompt: \"{}\"", prompt);
-    
+
     let start_time = Instant::now();
     let response = ollama_client.generate_text(prompt).await?;
     let gen_duration = start_time.elapsed();
-    
-    println!("   ✅ Response ({:?}): \"{}\"", gen_duration, response.trim());
-    
+
+    println!(
+        "   ✅ Response ({:?}): \"{}\"",
+        gen_duration,
+        response.trim()
+    );
+
     // Verify response quality
     assert!(!response.is_empty());
     assert!(response.len() > 20); // Meaningful response
-    
+
     Ok(())
 }
 
 /// Test Ollama configuration
 fn test_ollama_config() {
-    use nodespace_nlp_engine::{OllamaConfig, NLPConfig};
+    use nodespace_nlp_engine::{NLPConfig, OllamaConfig};
 
     // Test default configuration
     let default_config = OllamaConfig::default();
@@ -81,7 +85,7 @@ fn test_ollama_config() {
     println!("   Default Model: {}", default_config.default_model);
     println!("   Max Tokens: {}", default_config.max_tokens);
     println!("   Temperature: {}", default_config.temperature);
-    
+
     // Test NLP config includes Ollama
     let nlp_config = NLPConfig::default();
     println!("   ✅ Ollama config included in NLPConfig");
@@ -95,12 +99,12 @@ async fn test_nlp_engine_integration() -> Result<(), Box<dyn std::error::Error>>
 
     // Create engine with default configuration (includes Ollama)
     let engine = LocalNLPEngine::new();
-    
+
     println!("   Initializing LocalNLPEngine with Ollama support...");
     let start_time = Instant::now();
     engine.initialize().await?;
     let init_duration = start_time.elapsed();
-    
+
     println!("   ✅ Engine initialized ({:?})", init_duration);
 
     // Check engine status
@@ -111,22 +115,24 @@ async fn test_nlp_engine_integration() -> Result<(), Box<dyn std::error::Error>>
     // Test text generation (should use Ollama, not ONNX)
     let prompt = "What is the key advantage of Rust's ownership system?";
     println!("   Testing text generation with prompt: \"{}\"", prompt);
-    
+
     let start_time = Instant::now();
     let response = engine.generate_text(prompt).await?;
     let gen_duration = start_time.elapsed();
-    
+
     println!("   ✅ Generated text ({:?}):", gen_duration);
     println!("      \"{}\"", response.trim());
-    
+
     // Verify response quality
     assert!(!response.is_empty());
     assert!(response.len() > 30);
-    assert!(response.to_lowercase().contains("memory") || 
-           response.to_lowercase().contains("safety") ||
-           response.to_lowercase().contains("ownership"));
-    
+    assert!(
+        response.to_lowercase().contains("memory")
+            || response.to_lowercase().contains("safety")
+            || response.to_lowercase().contains("ownership")
+    );
+
     println!("   ✅ Response contains expected content about Rust");
-    
+
     Ok(())
 }

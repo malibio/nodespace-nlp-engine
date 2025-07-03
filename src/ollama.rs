@@ -37,9 +37,13 @@ struct OllamaOptions {
 struct OllamaGenerateResponse {
     response: String,
     done: bool,
+    #[allow(dead_code)] // Used for performance metrics
     total_duration: Option<u64>,
+    #[allow(dead_code)] // Used for performance metrics
     load_duration: Option<u64>,
+    #[allow(dead_code)] // Used for token counting
     prompt_eval_count: Option<u32>,
+    #[allow(dead_code)] // Used for token counting
     eval_count: Option<u32>,
 }
 
@@ -98,23 +102,26 @@ impl OllamaTextGenerator {
         self.test_connection().await?;
 
         self.initialized = true;
-        tracing::info!("✅ Ollama client initialized successfully");
+        tracing::info!("Ollama client initialized successfully");
         Ok(())
     }
 
     /// Test connection to Ollama server
     async fn test_connection(&self) -> Result<(), NLPError> {
         let url = format!("{}/api/tags", self.config.base_url);
-        
+
         tracing::debug!("Testing Ollama connection: {}", url);
-        
+
         let response = self
             .client
             .get(&url)
             .send()
             .await
             .map_err(|e| NLPError::ModelLoading {
-                message: format!("Failed to connect to Ollama server at {}: {}", self.config.base_url, e),
+                message: format!(
+                    "Failed to connect to Ollama server at {}: {}",
+                    self.config.base_url, e
+                ),
             })?;
 
         if !response.status().is_success() {
@@ -127,7 +134,7 @@ impl OllamaTextGenerator {
             });
         }
 
-        tracing::info!("✅ Ollama server connection successful");
+        tracing::info!("Ollama server connection successful");
         Ok(())
     }
 
@@ -150,8 +157,14 @@ impl OllamaTextGenerator {
         temperature: f32,
         top_p: f32,
     ) -> Result<String, NLPError> {
-        self.generate_with_model(&self.config.default_model, prompt, max_tokens, temperature, top_p)
-            .await
+        self.generate_with_model(
+            &self.config.default_model,
+            prompt,
+            max_tokens,
+            temperature,
+            top_p,
+        )
+        .await
     }
 
     /// Generate text with specific model
@@ -173,7 +186,12 @@ impl OllamaTextGenerator {
 
         tracing::debug!("Generating text with Ollama model: {}", model);
         tracing::debug!("Prompt length: {} chars", prompt.len());
-        tracing::debug!("Max tokens: {}, Temperature: {}, Top-p: {}", max_tokens, temperature, top_p);
+        tracing::debug!(
+            "Max tokens: {}, Temperature: {}, Top-p: {}",
+            max_tokens,
+            temperature,
+            top_p
+        );
 
         let request = OllamaGenerateRequest {
             model: model.to_string(),
@@ -187,15 +205,19 @@ impl OllamaTextGenerator {
         };
 
         let url = format!("{}/api/generate", self.config.base_url);
-        
+
         // Perform request with retry logic
         let mut last_error = None;
         for attempt in 1..=self.config.retry_attempts {
-            tracing::debug!("Ollama request attempt {}/{}", attempt, self.config.retry_attempts);
-            
+            tracing::debug!(
+                "Ollama request attempt {}/{}",
+                attempt,
+                self.config.retry_attempts
+            );
+
             match self.make_request(&url, &request).await {
                 Ok(response) => {
-                    tracing::info!("✅ Ollama text generation successful");
+                    tracing::debug!("Ollama text generation successful");
                     tracing::debug!("Response length: {} chars", response.len());
                     return Ok(response);
                 }
@@ -238,12 +260,13 @@ impl OllamaTextGenerator {
             });
         }
 
-        let ollama_response: OllamaGenerateResponse = response
-            .json()
-            .await
-            .map_err(|e| NLPError::ProcessingError {
-                message: format!("Failed to parse Ollama response: {}", e),
-            })?;
+        let ollama_response: OllamaGenerateResponse =
+            response
+                .json()
+                .await
+                .map_err(|e| NLPError::ProcessingError {
+                    message: format!("Failed to parse Ollama response: {}", e),
+                })?;
 
         if !ollama_response.done {
             tracing::warn!("Ollama response not marked as done - may be incomplete");
@@ -380,12 +403,13 @@ impl OllamaTextGenerator {
             });
         }
 
-        let ollama_response: OllamaGenerateResponse = response
-            .json()
-            .await
-            .map_err(|e| NLPError::ProcessingError {
-                message: format!("Failed to parse multimodal response: {}", e),
-            })?;
+        let ollama_response: OllamaGenerateResponse =
+            response
+                .json()
+                .await
+                .map_err(|e| NLPError::ProcessingError {
+                    message: format!("Failed to parse multimodal response: {}", e),
+                })?;
 
         // Build image references
         let image_references: Vec<crate::ImageReference> = request

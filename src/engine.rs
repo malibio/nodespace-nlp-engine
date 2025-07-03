@@ -100,11 +100,14 @@ impl LocalNLPEngine {
             let mut generator = OllamaTextGenerator::new(self.config.models.ollama.clone())?;
             match generator.initialize().await {
                 Ok(()) => {
-                    tracing::info!("✅ Ollama HTTP client initialized successfully");
+                    tracing::info!("Ollama HTTP client initialized successfully");
                     Some(generator)
-                },
+                }
                 Err(e) => {
-                    tracing::warn!("⚠️ Failed to initialize Ollama client (will use ONNX fallback): {}", e);
+                    tracing::warn!(
+                        "Failed to initialize Ollama client (will use ONNX fallback): {}",
+                        e
+                    );
                     None
                 }
             }
@@ -377,7 +380,10 @@ impl NLPEngine for LocalNLPEngine {
             if let Some(generator) = ollama_generator.as_ref() {
                 tracing::debug!("Using Ollama HTTP client for text generation");
                 return generator.generate_text(prompt).await.map_err(|e| {
-                    NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
+                    NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                        &e.to_string(),
+                        "text",
+                    ))
                 });
             } else {
                 tracing::debug!("Ollama not available, falling back to ONNX text generator");
@@ -437,7 +443,9 @@ impl NLPEngine for LocalNLPEngine {
                         ))
                     });
             } else {
-                tracing::debug!("Ollama not available, falling back to ONNX for enhanced generation");
+                tracing::debug!(
+                    "Ollama not available, falling back to ONNX for enhanced generation"
+                );
             }
         }
 
