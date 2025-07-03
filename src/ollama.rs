@@ -37,9 +37,13 @@ struct OllamaOptions {
 struct OllamaGenerateResponse {
     response: String,
     done: bool,
+    #[allow(dead_code)]
     total_duration: Option<u64>,
+    #[allow(dead_code)]
     load_duration: Option<u64>,
+    #[allow(dead_code)]
     prompt_eval_count: Option<u32>,
+    #[allow(dead_code)]
     eval_count: Option<u32>,
 }
 

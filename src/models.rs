@@ -1,7 +1,7 @@
 //! Model configuration and management
 
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 /// Configuration for the NLP Engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
