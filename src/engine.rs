@@ -6,6 +6,8 @@ use crate::error::NLPError;
 use crate::image_processing::{ImageEmbeddingGenerator, ImageMetadataExtractor};
 use crate::models::{DeviceType, NLPConfig};
 use crate::multi_level_embedding::{EmbeddingProvider, MultiLevelEmbeddingGenerator};
+#[cfg(feature = "ollama")]
+use crate::ollama::OllamaTextGenerator;
 use crate::text_generation::TextGenerator;
 use crate::utils::metrics::Timer;
 use crate::NLPEngine;
@@ -16,11 +18,13 @@ use nodespace_core_types::{NodeSpaceError, NodeSpaceResult, ProcessingError};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Local NLP Engine implementation using Mistral.rs and Candle
+/// Local NLP Engine implementation with optional Ollama HTTP client
 pub struct LocalNLPEngine {
     config: NLPConfig,
     embedding_generator: Arc<RwLock<Option<EmbeddingGenerator>>>,
     text_generator: Arc<RwLock<Option<TextGenerator>>>,
+    #[cfg(feature = "ollama")]
+    ollama_generator: Arc<RwLock<Option<OllamaTextGenerator>>>,
     #[cfg(feature = "multimodal")]
     image_embedding_generator: Arc<RwLock<Option<ImageEmbeddingGenerator>>>,
     multi_level_generator: Arc<RwLock<MultiLevelEmbeddingGenerator>>,
@@ -47,6 +51,8 @@ impl LocalNLPEngine {
             config,
             embedding_generator: Arc::new(RwLock::new(None)),
             text_generator: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "ollama")]
+            ollama_generator: Arc::new(RwLock::new(None)),
             #[cfg(feature = "multimodal")]
             image_embedding_generator: Arc::new(RwLock::new(None)),
             multi_level_generator: Arc::new(RwLock::new(MultiLevelEmbeddingGenerator::new())),
@@ -88,6 +94,22 @@ impl LocalNLPEngine {
         )?;
         text_generator.initialize().await?;
 
+        // Initialize Ollama HTTP client (if ollama feature is enabled)
+        #[cfg(feature = "ollama")]
+        let ollama_generator = {
+            let mut generator = OllamaTextGenerator::new(self.config.models.ollama.clone())?;
+            match generator.initialize().await {
+                Ok(()) => {
+                    tracing::info!("✅ Ollama HTTP client initialized successfully");
+                    Some(generator)
+                },
+                Err(e) => {
+                    tracing::warn!("⚠️ Failed to initialize Ollama client (will use ONNX fallback): {}", e);
+                    None
+                }
+            }
+        };
+
         // Initialize image embedding generator (if multimodal feature is enabled)
         #[cfg(feature = "multimodal")]
         let image_embedding_generator = {
@@ -104,6 +126,10 @@ impl LocalNLPEngine {
         // Store the initialized components
         *self.embedding_generator.write().await = Some(embedding_generator);
         *self.text_generator.write().await = Some(text_generator);
+        #[cfg(feature = "ollama")]
+        {
+            *self.ollama_generator.write().await = ollama_generator;
+        }
         #[cfg(feature = "multimodal")]
         {
             *self.image_embedding_generator.write().await = image_embedding_generator;
@@ -177,6 +203,15 @@ impl LocalNLPEngine {
     async fn get_text_generator(&self) -> Result<Arc<RwLock<Option<TextGenerator>>>, NLPError> {
         self.ensure_initialized().await?;
         Ok(self.text_generator.clone())
+    }
+
+    /// Get the Ollama text generator (ensuring it's initialized)
+    #[cfg(feature = "ollama")]
+    async fn get_ollama_generator(
+        &self,
+    ) -> Result<Arc<RwLock<Option<OllamaTextGenerator>>>, NLPError> {
+        self.ensure_initialized().await?;
+        Ok(self.ollama_generator.clone())
     }
 
     /// Get the image embedding generator (ensuring it's initialized)
@@ -325,12 +360,35 @@ impl NLPEngine for LocalNLPEngine {
         })
     }
 
-    /// Generate text using the local LLM (Mistral.rs)
+    /// Generate text using Ollama (preferred) or local ONNX fallback
     async fn generate_text(&self, prompt: &str) -> NodeSpaceResult<String> {
+        // Try Ollama first (if available)
+        #[cfg(feature = "ollama")]
+        {
+            let ollama_generator = self.get_ollama_generator().await.map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::model_error(
+                    "nlp-engine",
+                    "ollama-generator",
+                    &e.to_string(),
+                ))
+            })?;
+
+            let ollama_generator = ollama_generator.read().await;
+            if let Some(generator) = ollama_generator.as_ref() {
+                tracing::debug!("Using Ollama HTTP client for text generation");
+                return generator.generate_text(prompt).await.map_err(|e| {
+                    NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
+                });
+            } else {
+                tracing::debug!("Ollama not available, falling back to ONNX text generator");
+            }
+        }
+
+        // Fallback to ONNX text generator
         let generator = self.get_text_generator().await.map_err(|e| {
             NodeSpaceError::Processing(ProcessingError::model_error(
                 "nlp-engine",
-                "embedding-generator",
+                "text-generator",
                 &e.to_string(),
             ))
         })?;
@@ -340,24 +398,54 @@ impl NLPEngine for LocalNLPEngine {
             NodeSpaceError::Processing(ProcessingError::model_error(
                 "nlp-engine",
                 "text-generator",
-                "Text generator not initialized",
+                "No text generator available (Ollama and ONNX both failed)",
             ))
         })?;
 
+        tracing::debug!("Using ONNX text generator as fallback");
         generator.generate_text(prompt).await.map_err(|e| {
             NodeSpaceError::Processing(ProcessingError::embedding_failed(&e.to_string(), "text"))
         })
     }
 
-    /// Enhanced text generation with RAG context support
+    /// Enhanced text generation with RAG context support using Ollama (preferred) or ONNX fallback
     async fn generate_text_enhanced(
         &self,
         request: crate::TextGenerationRequest,
     ) -> NodeSpaceResult<crate::EnhancedTextGenerationResponse> {
+        // Try Ollama first (if available)
+        #[cfg(feature = "ollama")]
+        {
+            let ollama_generator = self.get_ollama_generator().await.map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::model_error(
+                    "nlp-engine",
+                    "ollama-generator",
+                    &e.to_string(),
+                ))
+            })?;
+
+            let ollama_generator = ollama_generator.read().await;
+            if let Some(generator) = ollama_generator.as_ref() {
+                tracing::debug!("Using Ollama HTTP client for enhanced text generation");
+                return generator
+                    .generate_text_enhanced(request)
+                    .await
+                    .map_err(|e| {
+                        NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                            &e.to_string(),
+                            "text",
+                        ))
+                    });
+            } else {
+                tracing::debug!("Ollama not available, falling back to ONNX for enhanced generation");
+            }
+        }
+
+        // Fallback to ONNX text generator
         let generator = self.get_text_generator().await.map_err(|e| {
             NodeSpaceError::Processing(ProcessingError::model_error(
                 "nlp-engine",
-                "embedding-generator",
+                "text-generator",
                 &e.to_string(),
             ))
         })?;
@@ -367,10 +455,11 @@ impl NLPEngine for LocalNLPEngine {
             NodeSpaceError::Processing(ProcessingError::model_error(
                 "nlp-engine",
                 "text-generator",
-                "Text generator not initialized",
+                "No text generator available (Ollama and ONNX both failed)",
             ))
         })?;
 
+        tracing::debug!("Using ONNX text generator for enhanced generation");
         generator
             .generate_text_enhanced(request)
             .await
@@ -667,7 +756,7 @@ impl NLPEngine for LocalNLPEngine {
             })
     }
 
-    /// Generate multimodal response with text and image understanding
+    /// Generate multimodal response with text and image understanding using Ollama (preferred) or fallback
     #[cfg(feature = "multimodal")]
     async fn generate_multimodal_response(
         &self,
@@ -675,7 +764,35 @@ impl NLPEngine for LocalNLPEngine {
     ) -> NodeSpaceResult<crate::MultimodalResponse> {
         let _timer = Timer::new("multimodal_response_generation");
 
-        // Generate embeddings for all input images
+        // Try Ollama multimodal first (if available)
+        #[cfg(feature = "ollama")]
+        {
+            let ollama_generator = self.get_ollama_generator().await.map_err(|e| {
+                NodeSpaceError::Processing(ProcessingError::model_error(
+                    "nlp-engine",
+                    "ollama-generator",
+                    &e.to_string(),
+                ))
+            })?;
+
+            let ollama_generator = ollama_generator.read().await;
+            if let Some(generator) = ollama_generator.as_ref() {
+                tracing::debug!("Using Ollama HTTP client for multimodal response generation");
+                return generator
+                    .generate_multimodal_response(request)
+                    .await
+                    .map_err(|e| {
+                        NodeSpaceError::Processing(ProcessingError::embedding_failed(
+                            &e.to_string(),
+                            "multimodal",
+                        ))
+                    });
+            } else {
+                tracing::debug!("Ollama not available, using fallback multimodal implementation");
+            }
+        }
+
+        // Fallback implementation: Generate embeddings and use text-only generation
         let mut image_embeddings = Vec::new();
         let mut image_references = Vec::new();
 
@@ -693,24 +810,23 @@ impl NLPEngine for LocalNLPEngine {
                     .description
                     .clone()
                     .unwrap_or_else(|| "Image".to_string()),
-                confidence: 0.8, // Default confidence for now
+                confidence: 0.6, // Lower confidence for fallback
             };
             image_references.push(image_ref);
         }
 
-        // For now, use the existing text generation with image context
-        // TODO: Integrate Phi-4 multimodal model for true multimodal understanding
+        // Use text generation with image context (fallback approach)
         let enhanced_prompt = self.build_multimodal_prompt(&request, &image_references);
 
         let text_request = crate::TextGenerationRequest {
             prompt: enhanced_prompt,
             max_tokens: request.max_tokens,
             temperature: request.temperature,
-            context_window: 8192, // Use default context window
+            context_window: 8192,
             conversation_mode: false,
             rag_context: None,
             enable_link_generation: request.enable_smart_links,
-            node_metadata: Vec::new(), // TODO: Populate from context_nodes
+            node_metadata: Vec::new(),
         };
 
         let text_response = self.generate_text_enhanced(text_request).await?;
@@ -724,10 +840,11 @@ impl NLPEngine for LocalNLPEngine {
             image_utilization: crate::ImageUtilization {
                 images_referenced: !request.images.is_empty(),
                 images_used: request.images.len(),
-                understanding_confidence: 0.7, // Placeholder for now
+                understanding_confidence: 0.5, // Lower confidence for fallback approach
             },
         };
 
+        tracing::debug!("Using fallback multimodal implementation (text-only with image context)");
         Ok(response)
     }
 }

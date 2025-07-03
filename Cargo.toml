@@ -14,6 +14,10 @@ nodespace-core-types = { path = "../nodespace-core-types" }
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
+# HTTP client for Ollama integration
+reqwest = { version = "0.12", features = ["json"], optional = true }
+base64 = { version = "0.22", optional = true }
+
 # AI/ML and model inference (unified ONNX Runtime stack)
 fastembed = { version = "4.9", optional = true }
 hf-hub = { version = "0.4.2", features = ["tokio"], optional = true }
@@ -54,8 +58,9 @@ tempfile = "3.0"
 tracing-subscriber = "0.3"
 
 [features]
-default = ["real-ml"]
+default = ["real-ml", "ollama"]
 real-ml = ["fastembed", "tokenizers", "hf-hub"]
+ollama = ["reqwest", "base64"]
 multimodal = ["real-ml", "image", "kamadak-exif"]
 evaluation = ["rouge", "strsim"]
 cpu-only = ["real-ml"]
@@ -75,6 +80,14 @@ path = "examples/regenerate_sample_database.rs"
 [[example]]
 name = "multimodal_demo"
 path = "examples/multimodal_demo.rs"
+
+[[example]]
+name = "test_ollama"
+path = "examples/test_ollama.rs"
+
+[[example]]
+name = "verify_ns126"
+path = "examples/verify_ns126.rs"
 
 [lib]
 name = "nodespace_nlp_engine"

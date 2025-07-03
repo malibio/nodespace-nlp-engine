@@ -20,12 +20,18 @@ pub mod evaluation;
 pub mod image_processing;
 pub mod models;
 pub mod multi_level_embedding;
+#[cfg(feature = "ollama")]
+pub mod ollama;
 pub mod text_generation;
 pub mod utils;
 
 // Re-export main types for consumers
 pub use engine::LocalNLPEngine;
 pub use error::NLPError;
+
+// Re-export Ollama text generator when feature is enabled
+#[cfg(feature = "ollama")]
+pub use ollama::OllamaTextGenerator;
 
 // Re-export evaluation types when feature is enabled
 #[cfg(feature = "evaluation")]
@@ -39,6 +45,10 @@ pub use models::{
     CacheConfig, DeviceConfig, DeviceType, EmbeddingModelConfig, ModelConfigs, ModelInfo,
     NLPConfig, PerformanceConfig, TextGenerationModelConfig,
 };
+
+// Re-export Ollama configuration when feature is enabled
+#[cfg(feature = "ollama")]
+pub use models::OllamaConfig;
 
 // Multi-level embedding types are defined below - no need to re-export
 
