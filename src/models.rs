@@ -1,7 +1,7 @@
 //! Model configuration and management
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 /// Configuration for the NLP Engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +26,10 @@ pub struct ModelConfigs {
 
     /// Text generation model configuration (ONNX Runtime)
     pub text_generation: TextGenerationModelConfig,
+
+    /// Ollama HTTP client configuration
+    #[cfg(feature = "ollama")]
+    pub ollama: OllamaConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +65,51 @@ pub struct TextGenerationModelConfig {
     pub default_temperature: f32,
     pub default_max_tokens: u32,
     pub default_top_p: f32,
+}
+
+/// Configuration for Ollama HTTP client
+#[cfg(feature = "ollama")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OllamaConfig {
+    /// Ollama server base URL
+    pub base_url: String,
+
+    /// Default model for text generation
+    pub default_model: String,
+
+    /// Multimodal model for vision tasks
+    pub multimodal_model: String,
+
+    /// HTTP request timeout in seconds
+    pub timeout_secs: u64,
+
+    /// Maximum tokens for generation
+    pub max_tokens: usize,
+
+    /// Default temperature for generation
+    pub temperature: f32,
+
+    /// Retry attempts for failed requests
+    pub retry_attempts: usize,
+
+    /// Enable streaming responses
+    pub stream: bool,
+}
+
+#[cfg(feature = "ollama")]
+impl Default for OllamaConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "http://localhost:11434".to_string(),
+            default_model: "gemma3:12b".to_string(),
+            multimodal_model: "gemma3:12b".to_string(), // Same model for now
+            timeout_secs: 120,
+            max_tokens: 4000,
+            temperature: 0.7,
+            retry_attempts: 3,
+            stream: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,6 +184,8 @@ impl NLPConfig {
                     default_max_tokens: 1024,
                     default_top_p: 0.95,
                 },
+                #[cfg(feature = "ollama")]
+                ollama: OllamaConfig::default(),
             },
             device: DeviceConfig {
                 device_type: DeviceType::Auto,
@@ -204,6 +255,8 @@ impl Default for NLPConfig {
                     default_max_tokens: 1024,
                     default_top_p: 0.95,
                 },
+                #[cfg(feature = "ollama")]
+                ollama: OllamaConfig::default(),
             },
             device: DeviceConfig {
                 device_type: DeviceType::Auto,

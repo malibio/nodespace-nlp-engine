@@ -167,13 +167,13 @@ impl MultiLevelEmbeddingGenerator {
             context_parts.push(format!("Parent: {}", truncate_text(&parent_text, 200)));
         }
 
-        // Add sibling context (previous and next)
-        if let Some(prev_sibling) = &context.previous_sibling {
+        // Add sibling context (before and after)
+        if let Some(prev_sibling) = &context.before_sibling {
             let sibling_text = extract_node_text(prev_sibling)?;
             context_parts.push(format!("Previous: {}", truncate_text(&sibling_text, 150)));
         }
 
-        if let Some(next_sibling) = &context.next_sibling {
+        if let Some(next_sibling) = &context.after_sibling {
             let sibling_text = extract_node_text(next_sibling)?;
             context_parts.push(format!("Next: {}", truncate_text(&sibling_text, 150)));
         }
@@ -315,8 +315,8 @@ fn truncate_text(text: &str, max_length: usize) -> String {
 /// Check if context has any meaningful information
 fn has_context(context: &NodeContext) -> bool {
     context.parent.is_some()
-        || context.previous_sibling.is_some()
-        || context.next_sibling.is_some()
+        || context.before_sibling.is_some()
+        || context.after_sibling.is_some()
         || !context.mentions.is_empty()
         || !context.related_nodes.is_empty()
 }
