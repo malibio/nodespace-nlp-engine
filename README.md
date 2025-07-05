@@ -4,23 +4,35 @@
 
 ## Overview
 
-The NodeSpace NLP Engine provides AI/ML capabilities for the NodeSpace system, focusing on multimodal processing with ONNX Runtime and Apple MPS acceleration. Currently in Phase 1 (text-only) with multimodal capabilities planned for Phase 2.
+The NodeSpace NLP Engine provides AI/ML capabilities for the NodeSpace system, using FastEmbed for embeddings and Ollama for text generation. Currently in Phase 1 (text-only) with multimodal capabilities planned for Phase 2.
 
 ### Current Features (Phase 1)
 - **Text embeddings** - BGE-small model via FastEmbed (384 dimensions)
-- **Text generation** - Gemma 3 1B IT ONNX model with local inference
+- **Text generation** - Gemma 3 model via Ollama HTTP API
 - **Semantic search** - Vector similarity and caching
-- **Apple MPS acceleration** - ONNX Runtime CoreML execution provider
+- **Apple MPS acceleration** - FastEmbed optimized for Apple Silicon
 - **Evaluation framework** - ROUGE/BLEU metrics for quality assessment
+
+### External Dependencies
+- **Ollama server** - Required for text generation (runs locally on port 11434)
 
 ### Planned Features (Phase 2)
 - **Image embeddings** - CLIP model for visual content
-- **Visual Q&A** - Phi-4 multimodal ONNX integration
+- **Visual Q&A** - Gemma 3 multimodal integration
 - **Cross-modal search** - Text-to-image and image-to-text retrieval
 - **PDF processing** - Text and image extraction
 
 ## Quick Start
 
+### Prerequisites
+```bash
+# Install and start Ollama for text generation
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve &
+ollama pull gemma3:12b
+```
+
+### Installation
 ```bash
 # Add to your Cargo.toml
 [dependencies]
@@ -66,9 +78,9 @@ cargo fmt --check
 
 ### Technology Stack
 - **Language**: Rust 1.86.0
-- **AI/ML**: FastEmbed 4.9, ONNX Runtime (via FastEmbed)
-- **Models**: BGE-small-en-v1.5 (text), Gemma 3 1B IT (generation)
-- **Hardware**: Apple MPS via ONNX Runtime CoreML EP
+- **AI/ML**: FastEmbed 4.9 (embeddings), Ollama HTTP API (text generation)
+- **Models**: BGE-small-en-v1.5 (text), Gemma 3 (generation via Ollama)
+- **Hardware**: Apple MPS via FastEmbed, Ollama external processing
 - **Testing**: ROUGE/BLEU evaluation metrics
 
 ## Architecture
@@ -76,28 +88,28 @@ cargo fmt --check
 The engine implements the `NLPEngine` trait from [nodespace-core-types](https://github.com/malibio/nodespace-core-types) and provides:
 
 - **Embedding Generation** - Text-to-vector conversion with caching
-- **Text Generation** - LLM inference with ONNX Runtime
+- **Text Generation** - LLM inference via Ollama HTTP API
 - **Multi-level Embeddings** - Individual, contextual, and hierarchical embeddings
 - **Performance Optimization** - Lazy initialization and smart caching
 
 ### Core Components
 - `LocalNLPEngine` - Main engine implementation
 - `EmbeddingGenerator` - FastEmbed integration for text embeddings
-- `TextGenerator` - ONNX Runtime integration for LLM inference
+- `TextGenerator` - Ollama HTTP API integration for LLM inference
 - `MultiLevelEmbeddingGenerator` - Contextual and hierarchical embedding support
 
 ## Current Status
 
 **Phase 1: Mostly Complete**
 - Text embeddings working with real BGE-small model
-- Text generation with Gemma 3 1B ONNX model
+- Text generation with Gemma 3 via Ollama HTTP API
 - Full trait compliance with nodespace-core-types
 - Comprehensive test suite with 19 passing tests
 - ROUGE/BLEU evaluation framework
 
 **Phase 2: In Progress**
 - Image embeddings via CLIP model (in development)
-- Multimodal LLM with Phi-4 (in development)
+- Multimodal LLM with Gemma 3 (in development)
 - Cross-modal search capabilities (planned)
 - PDF processing pipeline (planned)
 
