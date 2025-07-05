@@ -2,7 +2,7 @@
 
 **Multimodal AI/ML processing for NodeSpace - text embeddings, image understanding, and semantic search**
 
-## 🎯 Overview
+## Overview
 
 The NodeSpace NLP Engine provides AI/ML capabilities for the NodeSpace system, focusing on multimodal processing with ONNX Runtime and Apple MPS acceleration. Currently in Phase 1 (text-only) with multimodal capabilities planned for Phase 2.
 
@@ -19,7 +19,7 @@ The NodeSpace NLP Engine provides AI/ML capabilities for the NodeSpace system, f
 - **Cross-modal search** - Text-to-image and image-to-text retrieval
 - **PDF processing** - Text and image extraction
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Add to your Cargo.toml
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## 🛠️ Development
+## Development
 
 ### Setup
 ```bash
@@ -65,13 +65,13 @@ cargo fmt --check
 ```
 
 ### Technology Stack
-- **Language**: Rust 1.88.0
-- **AI/ML**: ONNX Runtime 2.0.0-rc.10, FastEmbed 4.9.1
+- **Language**: Rust 1.86.0
+- **AI/ML**: FastEmbed 4.9, ONNX Runtime (via FastEmbed)
 - **Models**: BGE-small-en-v1.5 (text), Gemma 3 1B IT (generation)
 - **Hardware**: Apple MPS via ONNX Runtime CoreML EP
 - **Testing**: ROUGE/BLEU evaluation metrics
 
-## 🏗️ Architecture
+## Architecture
 
 The engine implements the `NLPEngine` trait from [nodespace-core-types](https://github.com/malibio/nodespace-core-types) and provides:
 
@@ -86,22 +86,22 @@ The engine implements the `NLPEngine` trait from [nodespace-core-types](https://
 - `TextGenerator` - ONNX Runtime integration for LLM inference
 - `MultiLevelEmbeddingGenerator` - Contextual and hierarchical embedding support
 
-## 📊 Current Status
+## Current Status
 
-**Phase 1: Complete ✅**
+**Phase 1: Mostly Complete**
 - Text embeddings working with real BGE-small model
 - Text generation with Gemma 3 1B ONNX model
 - Full trait compliance with nodespace-core-types
-- Comprehensive test suite with 22 passing tests
+- Comprehensive test suite with 19 passing tests
 - ROUGE/BLEU evaluation framework
 
-**Phase 2: Planned 📋**
-- Image embeddings via CLIP model
-- Multimodal LLM with Phi-4
-- Cross-modal search capabilities
-- PDF processing pipeline
+**Phase 2: In Progress**
+- Image embeddings via CLIP model (in development)
+- Multimodal LLM with Phi-4 (in development)
+- Cross-modal search capabilities (planned)
+- PDF processing pipeline (planned)
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Unit tests
@@ -119,7 +119,7 @@ cargo run --example generate_embeddings
 cargo run --example text_generation
 ```
 
-## 🏗️ Architecture Context
+## Architecture Context
 
 Part of the NodeSpace system architecture:
 
@@ -131,6 +131,6 @@ Part of the NodeSpace system architecture:
 6. [nodespace-core-ui](https://github.com/malibio/nodespace-core-ui) - React components and UI
 7. [nodespace-desktop-app](https://github.com/malibio/nodespace-desktop-app) - Tauri application shell
 
-## 📝 License
+## License
 
 See LICENSE file for details.
