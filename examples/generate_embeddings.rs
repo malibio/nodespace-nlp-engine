@@ -4,24 +4,22 @@ use nodespace_nlp_engine::{LocalNLPEngine, NLPEngine};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Skip tracing initialization when using real-ml feature
-    #[cfg(not(feature = "real-ml"))]
     tracing_subscriber::fmt::init();
 
-    println!("NodeSpace NLP Engine - Embedding Generation Example");
+    tracing::info!("NodeSpace NLP Engine - Embedding Generation Example");
 
     // Create and initialize the NLP engine
     let engine = LocalNLPEngine::new();
-    println!("Initializing NLP engine...");
+    tracing::info!("Initializing NLP engine...");
     engine.initialize().await?;
 
     // Check engine status
     let status = engine.status().await;
-    println!("Engine initialized successfully!");
-    println!("   Device: {:?}", status.device_type);
+    tracing::info!("Engine initialized successfully!");
+    tracing::info!("Device: {:?}", status.device_type);
     if let Some(embedding_info) = status.embedding_info {
-        println!("   Model: {}", embedding_info.model_name);
-        println!("   Dimensions: {}", embedding_info.dimensions);
+        tracing::info!("Model: {}", embedding_info.model_name);
+        tracing::info!("Dimensions: {}", embedding_info.dimensions);
     }
 
     // Example texts
@@ -33,29 +31,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Code review for the authentication module",
     ];
 
-    println!("\nGenerating embeddings for example texts...");
+    tracing::info!("Generating embeddings for example texts...");
 
     // Generate individual embeddings
     for (i, text) in texts.iter().enumerate() {
-        println!("\nText {}: \"{}\"", i + 1, text);
+        tracing::info!("Text {}: \"{}\"", i + 1, text);
 
         let start_time = std::time::Instant::now();
         let embedding = engine.generate_embedding(text).await?;
         let duration = start_time.elapsed();
 
-        println!(
-            "   Generated embedding with {} dimensions in {:?}",
+        tracing::info!(
+            "Generated embedding with {} dimensions in {:?}",
             embedding.len(),
             duration
         );
-        println!(
-            "   First 5 values: {:?}",
+        tracing::debug!(
+            "First 5 values: {:?}",
             &embedding[..5.min(embedding.len())]
         );
     }
 
     // Demonstrate batch processing
-    println!("\nDemonstrating batch embedding generation...");
+    tracing::info!("Demonstrating batch embedding generation...");
 
     let start_time = std::time::Instant::now();
     let batch_embeddings = engine
@@ -63,30 +61,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     let batch_duration = start_time.elapsed();
 
-    println!(
-        "   Generated {} embeddings in batch in {:?}",
+    tracing::info!(
+        "Generated {} embeddings in batch in {:?}",
         batch_embeddings.len(),
         batch_duration
     );
 
     // Calculate similarities between texts
-    println!("\nCalculating similarities between texts...");
+    tracing::info!("Calculating similarities between texts...");
 
     for i in 0..texts.len() {
         for j in (i + 1)..texts.len() {
             let similarity = cosine_similarity(&batch_embeddings[i], &batch_embeddings[j]);
-            println!("   Text {} <-> Text {}: {:.3}", i + 1, j + 1, similarity);
+            tracing::info!("Text {} <-> Text {}: {:.3}", i + 1, j + 1, similarity);
         }
     }
 
     // Demonstrate semantic search scenario
-    println!("\nSemantic search demonstration...");
+    tracing::info!("Semantic search demonstration...");
 
     let query = "team meeting planning";
     let query_embedding = engine.generate_embedding(query).await?;
 
-    println!("Query: \"{}\"", query);
-    println!("Most similar texts:");
+    tracing::info!("Query: \"{}\"", query);
+    tracing::info!("Most similar texts:");
 
     let mut similarities: Vec<(usize, f32)> = batch_embeddings
         .iter()
@@ -97,8 +95,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     for (i, (text_idx, similarity)) in similarities.iter().enumerate() {
-        println!(
-            "   {}. \"{}\" (similarity: {:.3})",
+        tracing::info!(
+            "{}. \"{}\" (similarity: {:.3})",
             i + 1,
             texts[*text_idx],
             similarity
@@ -107,13 +105,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Show cache statistics
     let cache_stats = engine.cache_stats().await;
-    println!("\nCache Statistics:");
-    println!(
-        "   Cached embeddings: {}/{}",
+    tracing::info!("Cache Statistics:");
+    tracing::info!(
+        "Cached embeddings: {}/{}",
         cache_stats.embedding_cache_size, cache_stats.embedding_cache_capacity
     );
 
-    println!("\nExample completed successfully!");
+    tracing::info!("Example completed successfully!");
 
     Ok(())
 }

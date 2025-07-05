@@ -1,7 +1,7 @@
-//! Integration tests for Ollama HTTP client (NS-126)
+//! Integration tests for Ollama HTTP client
 //! Tests real connectivity to local Ollama server with gemma3:12b
 
-use nodespace_nlp_engine::{LocalNLPEngine, NLPConfig, OllamaConfig, NLPEngine};
+use nodespace_nlp_engine::{LocalNLPEngine, NLPConfig, NLPEngine, OllamaConfig};
 
 #[tokio::test]
 async fn test_ollama_basic_text_generation() {
@@ -13,18 +13,24 @@ async fn test_ollama_basic_text_generation() {
 
     // Create engine with default gemma3:12b configuration
     let engine = LocalNLPEngine::new();
-    
+
     // Initialize engine
-    engine.initialize().await.expect("Failed to initialize engine");
-    
+    engine
+        .initialize()
+        .await
+        .expect("Failed to initialize engine");
+
     // Test basic text generation
     let prompt = "What is the capital of France?";
-    let response = engine.generate_text(prompt).await.expect("Failed to generate text");
-    
+    let response = engine
+        .generate_text(prompt)
+        .await
+        .expect("Failed to generate text");
+
     // Verify response is meaningful
     assert!(!response.is_empty());
     assert!(response.to_lowercase().contains("paris"));
-    
+
     println!("✅ Ollama basic text generation test passed");
     println!("   Prompt: {}", prompt);
     println!("   Response: {}", response.trim());
@@ -38,11 +44,14 @@ async fn test_ollama_enhanced_generation() {
         return;
     }
 
-    use nodespace_nlp_engine::{TextGenerationRequest, RAGContext};
+    use nodespace_nlp_engine::{RAGContext, TextGenerationRequest};
 
     let engine = LocalNLPEngine::new();
-    engine.initialize().await.expect("Failed to initialize engine");
-    
+    engine
+        .initialize()
+        .await
+        .expect("Failed to initialize engine");
+
     // Create enhanced request with RAG context
     let rag_context = RAGContext {
         knowledge_sources: vec![
@@ -65,17 +74,23 @@ async fn test_ollama_enhanced_generation() {
         node_metadata: Vec::new(),
     };
 
-    let response = engine.generate_text_enhanced(request).await.expect("Failed to generate enhanced text");
-    
+    let response = engine
+        .generate_text_enhanced(request)
+        .await
+        .expect("Failed to generate enhanced text");
+
     // Verify enhanced response
     assert!(!response.text.is_empty());
     assert!(response.tokens_used > 0);
     assert!(response.generation_metrics.generation_time_ms > 0);
-    
+
     println!("✅ Ollama enhanced generation test passed");
     println!("   Response: {}", response.text.trim());
     println!("   Tokens used: {}", response.tokens_used);
-    println!("   Generation time: {}ms", response.generation_metrics.generation_time_ms);
+    println!(
+        "   Generation time: {}ms",
+        response.generation_metrics.generation_time_ms
+    );
 }
 
 #[tokio::test]
@@ -92,14 +107,17 @@ async fn test_ollama_fallback_to_onnx() {
         retry_attempts: 1, // Single attempt
         stream: false,
     };
-    
+
     let engine = LocalNLPEngine::with_config(config);
-    engine.initialize().await.expect("Failed to initialize engine");
-    
+    engine
+        .initialize()
+        .await
+        .expect("Failed to initialize engine");
+
     // This should fall back to ONNX since Ollama connection will fail
     let prompt = "Test fallback";
     let result = engine.generate_text(prompt).await;
-    
+
     // Should either succeed with ONNX fallback or fail gracefully
     match result {
         Ok(response) => {

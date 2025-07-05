@@ -15,6 +15,17 @@ use nodespace_core_types::{
 use nodespace_core_types::Node;
 use std::collections::HashMap;
 
+/// Status information about sibling context availability for enhanced embeddings
+#[derive(Debug, Clone)]
+struct SiblingContextStatus {
+    /// Whether any sibling context is available
+    pub has_siblings: bool,
+    /// Total number of sibling nodes
+    pub total_siblings: usize,
+    /// Context weight multiplier based on sibling availability
+    pub context_weight: f32,
+}
+
 /// Multi-level embedding generator that creates contextual and hierarchical embeddings
 #[derive(Default)]
 pub struct MultiLevelEmbeddingGenerator {
@@ -37,18 +48,29 @@ impl MultiLevelEmbeddingGenerator {
     ) -> Result<Vec<f32>, NLPError> {
         let _timer = Timer::new("contextual_embedding_generation");
 
+        // Monitor sibling context availability for enhanced embeddings
+        let sibling_context_status = self.analyze_sibling_context(context);
+        if sibling_context_status.has_siblings {
+            tracing::info!(
+                "✅ Enhanced sibling context available - rich contextual embeddings enabled"
+            );
+            tracing::debug!(
+                "Sibling context: total_siblings={}, weight={:.2}",
+                sibling_context_status.total_siblings,
+                sibling_context_status.context_weight
+            );
+        }
+
         // Generate contextual text based on strategy
         let contextual_text = match &context.strategy {
             ContextStrategy::RuleBased => self.generate_rule_based_context(node, context)?,
             ContextStrategy::Phi4Enhanced => {
-                // TODO: Implement Phi-4 enhanced context generation
                 tracing::warn!(
                     "Phi4Enhanced strategy not yet implemented, falling back to RuleBased"
                 );
                 self.generate_rule_based_context(node, context)?
             }
             ContextStrategy::Adaptive => {
-                // TODO: Implement adaptive strategy selection
                 tracing::warn!("Adaptive strategy not yet implemented, falling back to RuleBased");
                 self.generate_rule_based_context(node, context)?
             }
@@ -167,15 +189,19 @@ impl MultiLevelEmbeddingGenerator {
             context_parts.push(format!("Parent: {}", truncate_text(&parent_text, 200)));
         }
 
-        // Add sibling context (before and after)
-        if let Some(prev_sibling) = &context.before_sibling {
-            let sibling_text = extract_node_text(prev_sibling)?;
-            context_parts.push(format!("Previous: {}", truncate_text(&sibling_text, 150)));
-        }
+        // Add collective sibling context
+        if !context.siblings.is_empty() {
+            let sibling_texts: Vec<String> = context.siblings
+                .iter()
+                .take(3) // Limit to avoid context explosion
+                .filter_map(|sibling| extract_node_text(sibling).ok())
+                .map(|text| truncate_text(&text, 100))
+                .collect();
 
-        if let Some(next_sibling) = &context.after_sibling {
-            let sibling_text = extract_node_text(next_sibling)?;
-            context_parts.push(format!("Next: {}", truncate_text(&sibling_text, 150)));
+            if !sibling_texts.is_empty() {
+                context_parts.push(format!("Siblings: {}", sibling_texts.join("; ")));
+                tracing::debug!("✅ Collective sibling context added: {} siblings", sibling_texts.len());
+            }
         }
 
         // Add mention context (nodes that reference this node)
@@ -271,6 +297,24 @@ impl MultiLevelEmbeddingGenerator {
     pub fn cache_stats(&self) -> (usize, usize) {
         (self.context_cache.len(), self.context_cache.capacity())
     }
+
+    /// Analyze sibling context availability and quality
+    fn analyze_sibling_context(&self, context: &NodeContext) -> SiblingContextStatus {
+        let has_siblings = !context.siblings.is_empty();
+        let total_siblings = context.siblings.len();
+        
+        let context_weight = if has_siblings {
+            1.1 + (total_siblings.min(3) as f32 * 0.1) // Weight increases with more siblings
+        } else {
+            1.0 // Isolated node (normal weight)
+        };
+
+        SiblingContextStatus {
+            has_siblings,
+            total_siblings,
+            context_weight,
+        }
+    }
 }
 
 /// Trait for providing base embedding generation functionality
@@ -315,8 +359,7 @@ fn truncate_text(text: &str, max_length: usize) -> String {
 /// Check if context has any meaningful information
 fn has_context(context: &NodeContext) -> bool {
     context.parent.is_some()
-        || context.before_sibling.is_some()
-        || context.after_sibling.is_some()
+        || !context.siblings.is_empty()
         || !context.mentions.is_empty()
         || !context.related_nodes.is_empty()
 }
@@ -341,15 +384,15 @@ mod tests {
 
     #[test]
     fn test_extract_node_text() {
-        let node = Node::new(json!({"text": "Hello, world!"}));
+        let node = Node::new("text".to_string(), json!({"text": "Hello, world!"}));
         let extracted = extract_node_text(&node).unwrap();
         assert_eq!(extracted, "Hello, world!");
 
-        let node = Node::new(json!({"content": "Different field"}));
+        let node = Node::new("content".to_string(), json!({"content": "Different field"}));
         let extracted = extract_node_text(&node).unwrap();
         assert_eq!(extracted, "Different field");
 
-        let node = Node::new(json!({"title": "Node Title"}));
+        let node = Node::new("title".to_string(), json!({"title": "Node Title"}));
         let extracted = extract_node_text(&node).unwrap();
         assert_eq!(extracted, "Node Title");
     }
@@ -370,12 +413,16 @@ mod tests {
         let empty_context = NodeContext::default();
         assert!(!has_context(&empty_context));
 
-        let context_with_parent =
-            NodeContext::default().with_parent(Node::new(json!({"text": "Parent node"})));
+        let context_with_parent = NodeContext::default().with_parent(Node::new(
+            "text".to_string(),
+            json!({"text": "Parent node"}),
+        ));
         assert!(has_context(&context_with_parent));
 
-        let context_with_mentions =
-            NodeContext::default().with_mentions(vec![Node::new(json!({"text": "Mention"}))]);
+        let context_with_mentions = NodeContext::default().with_mentions(vec![Node::new(
+            "text".to_string(),
+            json!({"text": "Mention"}),
+        )]);
         assert!(has_context(&context_with_mentions));
     }
 
@@ -384,13 +431,16 @@ mod tests {
         let mut generator = MultiLevelEmbeddingGenerator::new();
         let provider = MockEmbeddingProvider;
 
-        let node = Node::new(json!({"text": "Current node content"}));
-        let parent = Node::new(json!({"text": "Parent node content"}));
+        let node = Node::new("text".to_string(), json!({"text": "Current node content"}));
+        let parent = Node::new("text".to_string(), json!({"text": "Parent node content"}));
         let path = vec![parent.clone()];
 
         let context = NodeContext::default()
             .with_parent(parent)
-            .with_mentions(vec![Node::new(json!({"text": "Reference node"}))]);
+            .with_mentions(vec![Node::new(
+                "text".to_string(),
+                json!({"text": "Reference node"}),
+            )]);
 
         let embeddings = generator
             .generate_all_embeddings(&node, &context, &path, &provider)
@@ -409,14 +459,14 @@ mod tests {
         let mut generator = MultiLevelEmbeddingGenerator::new();
         let provider = MockEmbeddingProvider;
 
-        let node = Node::new(json!({"text": "Main content"}));
-        let parent = Node::new(json!({"text": "Parent content"}));
-        let sibling = Node::new(json!({"text": "Sibling content"}));
+        let node = Node::new("text".to_string(), json!({"text": "Main content"}));
+        let parent = Node::new("text".to_string(), json!({"text": "Parent content"}));
+        let sibling = Node::new("text".to_string(), json!({"text": "Sibling content"}));
 
         let context =
             NodeContext::default()
                 .with_parent(parent)
-                .with_siblings(Some(sibling), None, vec![]);
+                .with_siblings(vec![sibling]);
 
         let embedding = generator
             .generate_contextual_embedding(&node, &context, &provider)
@@ -431,9 +481,9 @@ mod tests {
         let mut generator = MultiLevelEmbeddingGenerator::new();
         let provider = MockEmbeddingProvider;
 
-        let node = Node::new(json!({"text": "Leaf node"}));
-        let root = Node::new(json!({"text": "Root node"}));
-        let middle = Node::new(json!({"text": "Middle node"}));
+        let node = Node::new("text".to_string(), json!({"text": "Leaf node"}));
+        let root = Node::new("text".to_string(), json!({"text": "Root node"}));
+        let middle = Node::new("text".to_string(), json!({"text": "Middle node"}));
         let path = vec![root, middle];
 
         let embedding = generator
