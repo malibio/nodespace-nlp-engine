@@ -11,7 +11,7 @@ The NodeSpace NLP Engine provides AI/ML capabilities for the NodeSpace system, u
 - **Text generation** - Gemma 3 model via Ollama HTTP API
 - **Semantic search** - Vector similarity and caching
 - **Apple MPS acceleration** - FastEmbed optimized for Apple Silicon
-- **Evaluation framework** - ROUGE/BLEU metrics for quality assessment
+- **Evaluation framework** - Basic quality assessment (ROUGE/BLEU in development)
 
 ### External Dependencies
 - **Ollama server** - Required for text generation (runs locally on port 11434)
@@ -81,7 +81,7 @@ cargo fmt --check
 - **AI/ML**: FastEmbed 4.9 (embeddings), Ollama HTTP API (text generation)
 - **Models**: BGE-small-en-v1.5 (text), Gemma 3 (generation via Ollama)
 - **Hardware**: Apple MPS via FastEmbed, Ollama external processing
-- **Testing**: ROUGE/BLEU evaluation metrics
+- **Testing**: Unit tests and integration tests
 
 ## Architecture
 
@@ -105,7 +105,7 @@ The engine implements the `NLPEngine` trait from [nodespace-core-types](https://
 - Text generation with Gemma 3 via Ollama HTTP API
 - Full trait compliance with nodespace-core-types
 - Comprehensive test suite with 19 passing tests
-- ROUGE/BLEU evaluation framework
+- Basic evaluation framework (ROUGE/BLEU stubs)
 
 **Phase 2: In Progress**
 - Image embeddings via CLIP model (in development)
@@ -123,7 +123,7 @@ cargo test
 cargo test --test trait_compliance
 cargo test --test test_ollama_integration
 
-# Evaluation framework
+# Basic evaluation tests
 cargo test --features evaluation
 
 # Examples
